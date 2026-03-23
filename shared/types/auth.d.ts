@@ -1,8 +1,10 @@
 declare module '#auth-utils' {
   interface User {
+    dbId?: string
     githubId: number
     login: string
-    name: string | null
+    firstName: string | null
+    lastName: string | null
     email: string | null
     avatarUrl: string
   }

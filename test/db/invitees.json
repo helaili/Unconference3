@@ -1,0 +1,23 @@
+[
+  {
+    "id": "c0000000-0000-0000-0000-000000000001",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "firstName": "Alice",
+    "lastName": "Smith",
+    "email": "alice@example.com"
+  },
+  {
+    "id": "c0000000-0000-0000-0000-000000000002",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "firstName": "Bob",
+    "lastName": "Jones",
+    "email": "bob@example.com"
+  },
+  {
+    "id": "c0000000-0000-0000-0000-000000000003",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "firstName": "Carol",
+    "lastName": "Lee",
+    "email": "carol@example.com"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "b0000000-0000-0000-0000-000000000001",
+    "githubId": 12345,
+    "login": "testuser",
+    "firstName": "Test",
+    "lastName": "User",
+    "email": "test@example.com",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/12345"
+  },
+  {
+    "id": "b0000000-0000-0000-0000-000000000002",
+    "githubId": 2787414,
+    "login": "helaili",
+    "firstName": "Alain",
+    "lastName": "Helaili",
+    "email": "helaili@github.com",
+    "avatarUrl": "https://avatars.githubusercontent.com/u/2787414"
+  }
+]
