@@ -1,4 +1,6 @@
 <script setup lang="ts">
+useHead({ title: 'Unconference', titleTemplate: '' })
+
 const { loggedIn } = useUserSession()
 
 // Redirect authenticated users to chat

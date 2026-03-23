@@ -4,6 +4,13 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-03-23',
   devtools: { enabled: true },
 
+  app: {
+    head: {
+      titleTemplate: '%s - Unconference',
+      title: 'Unconference',
+    },
+  },
+
   modules: [
     '@nuxt/eslint',
     '@nuxt/fonts',
