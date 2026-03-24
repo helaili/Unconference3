@@ -1,12 +1,12 @@
 declare module '#auth-utils' {
   interface User {
     dbId?: string
-    githubId: number
-    login: string
+    githubId?: number | null
+    login?: string | null
     firstName: string | null
     lastName: string | null
     email: string | null
-    avatarUrl: string
+    avatarUrl?: string | null
   }
 
   interface UserSession {
@@ -14,7 +14,7 @@ declare module '#auth-utils' {
   }
 
   interface SecureSessionData {
-    accessToken: string
+    accessToken?: string
   }
 }
 

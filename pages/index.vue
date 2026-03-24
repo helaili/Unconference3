@@ -2,6 +2,7 @@
 useHead({ title: 'Unconference', titleTemplate: '' })
 
 const { loggedIn } = useUserSession()
+const { authMode } = useRuntimeConfig().public
 const route = useRoute()
 
 const errorParam = computed(() => route.query.error as string | undefined)
@@ -48,6 +49,17 @@ watchEffect(async () => {
     <template v-if="loggedIn">
       <p class="text-body-1 text-grey mb-6">
         You are not currently associated with any event. Please contact the event organizer.
+      </p>
+    </template>
+    <template v-else-if="authMode === 'local'">
+      <p class="text-body-1 text-grey mb-6">
+        Sign in to access your events.
+      </p>
+      <v-btn color="primary" size="large" to="/login" prepend-icon="mdi-login">
+        Sign In
+      </v-btn>
+      <p class="text-body-2 text-grey mt-4">
+        New here? Check your email for an invitation link.
       </p>
     </template>
     <template v-else>

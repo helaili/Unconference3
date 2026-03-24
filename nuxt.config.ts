@@ -4,6 +4,13 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-03-23',
   devtools: { enabled: true },
 
+  runtimeConfig: {
+    authMode: process.env.AUTH_MODE || 'github',
+    public: {
+      authMode: process.env.AUTH_MODE || 'github',
+    },
+  },
+
   app: {
     head: {
       titleTemplate: '%s - Unconference',

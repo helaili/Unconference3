@@ -75,11 +75,12 @@ export const invitationsRelations = relations(invitations, ({ one }) => ({
 // ── Users ───────────────────────────────────────────────────────────────────
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  githubId: integer('github_id').notNull().unique(),
-  login: varchar('login', { length: 255 }).notNull().unique(),
+  githubId: integer('github_id').unique(),
+  login: varchar('login', { length: 255 }).unique(),
   firstName: varchar('first_name', { length: 100 }),
   lastName: varchar('last_name', { length: 100 }),
-  email: varchar('email', { length: 255 }),
+  email: varchar('email', { length: 255 }).unique(),
+  passwordHash: text('password_hash'),
   avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

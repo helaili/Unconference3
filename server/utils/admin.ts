@@ -5,9 +5,19 @@ export function isAdmin(login: string): boolean {
   return adminLogins.includes(login)
 }
 
+export function isAdminEmail(email: string): boolean {
+  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  return adminEmails.includes(email.toLowerCase())
+}
+
 export async function requireAdmin(event: H3Event): Promise<void> {
   const session = await getUserSession(event)
-  if (!session?.user?.login || !isAdmin(session.user.login)) {
+  const user = session?.user
+  if (!user) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden: admin access required' })
+  }
+  const isAdminUser = (user.login && isAdmin(user.login)) || (user.email && isAdminEmail(user.email))
+  if (!isAdminUser) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden: admin access required' })
   }
 }

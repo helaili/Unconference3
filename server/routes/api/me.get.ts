@@ -1,15 +1,15 @@
-import { users, userEvents, events } from '~/server/database/schema'
+import { users } from '~/server/database/schema'
 import { eq } from 'drizzle-orm'
 
 export default defineEventHandler(async (event) => {
   const session = await getUserSession(event)
-  if (!session?.user?.githubId) {
+  if (!session?.user?.dbId) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
   const db = useDB()
   const dbUser = await db.query.users.findFirst({
-    where: eq(users.githubId, session.user.githubId),
+    where: eq(users.id, session.user.dbId),
     with: {
       userEvents: {
         with: { event: true }
