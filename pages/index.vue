@@ -12,10 +12,20 @@ const errorMessages: Record<string, string> = {
   'invalid-invitation': 'Your invitation link was invalid or expired. Please request a new invitation.',
 }
 
-// Redirect authenticated users to dashboard
-watchEffect(() => {
+// Redirect authenticated users to dashboard only if they have events or are admin
+watchEffect(async () => {
   if (loggedIn.value) {
-    navigateTo('/dashboard')
+    try {
+      const [meData, adminData] = await Promise.all([
+        $fetch<{ events: unknown[] }>('/api/me'),
+        $fetch<{ isAdmin: boolean }>('/api/admin/check'),
+      ])
+      if (meData.events.length > 0 || adminData.isAdmin) {
+        navigateTo('/dashboard')
+      }
+    } catch {
+      // If API calls fail, stay on the index page
+    }
   }
 })
 </script>
@@ -35,8 +45,18 @@ watchEffect(() => {
       {{ errorMessages[errorParam] }}
     </v-alert>
 
-    <p class="text-body-1 text-grey mb-6">
-      Access is by invitation only. Check your email for an invitation link.
-    </p>
+    <template v-if="loggedIn">
+      <p class="text-body-1 text-grey mb-6">
+        You are not currently associated with any event. Please contact the event organizer.
+      </p>
+    </template>
+    <template v-else>
+      <p class="text-body-1 text-grey mb-6">
+        Log in with your GitHub account or use an invitation link from the event organizer.
+      </p>
+      <v-btn color="primary" size="large" href="/auth/github" prepend-icon="mdi-github">
+        Login with GitHub
+      </v-btn>
+    </template>
   </div>
 </template>
