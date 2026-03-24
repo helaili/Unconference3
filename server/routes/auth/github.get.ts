@@ -78,13 +78,19 @@ export default defineOAuthGitHubEventHandler({
     }
 
     // Returning user re-login (no invitation token)
-    const [existingUser] = await db.select()
-      .from(users)
-      .where(eq(users.githubId, user.id))
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.githubId, user.id),
+      with: {
+        userEvents: true,
+      },
+    })
 
     if (!existingUser) {
       return sendRedirect(event, '/?error=no-invitation')
     }
+
+    const hasEvents = existingUser.userEvents.length > 0
+    const userIsAdmin = isAdmin(existingUser.login)
 
     await setUserSession(event, {
       user: {
@@ -101,7 +107,11 @@ export default defineOAuthGitHubEventHandler({
       },
     })
 
-    return sendRedirect(event, '/dashboard')
+    if (hasEvents || userIsAdmin) {
+      return sendRedirect(event, '/dashboard')
+    }
+
+    return sendRedirect(event, '/')
   },
   onError(event, error) {
     console.error('GitHub OAuth error:', error)

@@ -9,9 +9,9 @@ describe('Landing page (pages/index.vue)', () => {
     expect(wrapper.text()).toContain('Welcome to Unconference')
   })
 
-  it('displays the "invitation only" message', async () => {
+  it('displays the login prompt for unauthenticated users', async () => {
     const wrapper = await mountSuspended(IndexPage)
-    expect(wrapper.text()).toContain('invitation only')
+    expect(wrapper.text()).toContain('Log in with your GitHub account')
   })
 
   it('shows error alert when route has ?error=no-invitation', async () => {
