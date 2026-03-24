@@ -12,14 +12,29 @@ interface Invitation {
   createdAt: string
 }
 
+type InviteeRole = 'participant' | 'moderator' | 'staff'
+
 interface Invitee {
   id: string
   eventId: string
   firstName: string
   lastName: string
   email: string
+  role: InviteeRole
   createdAt: string
   invitations: Invitation[]
+}
+
+const roleOptions: { title: string; value: InviteeRole }[] = [
+  { title: 'Participant', value: 'participant' },
+  { title: 'Moderator', value: 'moderator' },
+  { title: 'Staff', value: 'staff' },
+]
+
+const roleColors: Record<InviteeRole, string> = {
+  participant: 'blue',
+  moderator: 'purple',
+  staff: 'teal',
 }
 
 interface Event {
@@ -38,6 +53,7 @@ const headers = [
   { title: 'First Name', key: 'firstName' },
   { title: 'Last Name', key: 'lastName' },
   { title: 'Email', key: 'email' },
+  { title: 'Role', key: 'role', sortable: true },
   { title: 'Invitation Status', key: 'status', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
@@ -66,7 +82,7 @@ function getInvitationStatus(invitee: Invitee): { label: string; color: string }
 // Dialog state
 const dialog = ref(false)
 const editingInvitee = ref<Invitee | null>(null)
-const form = ref({ firstName: '', lastName: '', email: '' })
+const form = ref({ firstName: '', lastName: '', email: '', role: 'participant' as InviteeRole })
 const formValid = ref(false)
 const saving = ref(false)
 
@@ -80,7 +96,7 @@ const rules = {
 
 function openAddDialog() {
   editingInvitee.value = null
-  form.value = { firstName: '', lastName: '', email: '' }
+  form.value = { firstName: '', lastName: '', email: '', role: 'participant' }
   dialog.value = true
 }
 
@@ -90,6 +106,7 @@ function openEditDialog(invitee: Invitee) {
     firstName: invitee.firstName,
     lastName: invitee.lastName,
     email: invitee.email,
+    role: invitee.role,
   }
   dialog.value = true
 }
@@ -255,6 +272,15 @@ async function deleteInvitee() {
       items-per-page="25"
       class="elevation-1"
     >
+      <template #[`item.role`]="{ item }">
+        <v-chip
+          :color="roleColors[item.role]"
+          size="small"
+        >
+          {{ item.role }}
+        </v-chip>
+      </template>
+
       <template #[`item.status`]="{ item }">
         <v-chip
           :color="getInvitationStatus(item).color"
@@ -315,6 +341,14 @@ async function deleteInvitee() {
               label="Email"
               type="email"
               :rules="rules.email"
+              class="mb-2"
+            />
+            <v-select
+              v-model="form.role"
+              label="Role"
+              :items="roleOptions"
+              item-title="title"
+              item-value="value"
             />
           </v-form>
         </v-card-text>

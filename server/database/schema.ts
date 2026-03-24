@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   varchar,
   text,
@@ -9,6 +10,11 @@ import {
   unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
+
+// ── Enums ───────────────────────────────────────────────────────────────────
+export const inviteeRoleValues = ['participant', 'moderator', 'staff'] as const
+export type InviteeRole = (typeof inviteeRoleValues)[number]
+export const inviteeRoleEnum = pgEnum('invitee_role', inviteeRoleValues)
 
 // ── Events ──────────────────────────────────────────────────────────────────
 export const events = pgTable('events', {
@@ -36,6 +42,7 @@ export const invitees = pgTable(
     firstName: varchar('first_name', { length: 100 }).notNull(),
     lastName: varchar('last_name', { length: 100 }).notNull(),
     email: varchar('email', { length: 255 }).notNull(),
+    role: inviteeRoleEnum('role').notNull().default('participant'),
     createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   },
   (t) => [unique().on(t.eventId, t.email)],
