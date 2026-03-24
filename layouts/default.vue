@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { loggedIn, user, clear } = useUserSession()
+const { authMode } = useRuntimeConfig().public
 
 const { data: adminCheck } = useFetch('/api/admin/check', {
   immediate: loggedIn.value,
@@ -8,9 +9,15 @@ const { data: adminCheck } = useFetch('/api/admin/check', {
 
 const isAdmin = computed(() => adminCheck.value?.isAdmin ?? false)
 
+const displayName = computed(() => {
+  if (!user.value) return ''
+  if (user.value.login) return user.value.login
+  return [user.value.firstName, user.value.lastName].filter(Boolean).join(' ') || user.value.email || ''
+})
+
 const logout = async () => {
   await clear()
-  navigateTo('/')
+  navigateTo(authMode === 'local' ? '/login' : '/')
 }
 </script>
 
@@ -25,10 +32,13 @@ const logout = async () => {
           <v-icon start>mdi-cog</v-icon>
           Admin
         </v-btn>
-        <v-avatar size="32" class="mr-2">
-          <v-img :src="user?.avatarUrl" :alt="user?.login" />
+        <v-avatar v-if="user?.avatarUrl" size="32" class="mr-2">
+          <v-img :src="user.avatarUrl" :alt="displayName" />
         </v-avatar>
-        <span class="mr-4">{{ user?.login }}</span>
+        <v-avatar v-else size="32" color="primary" class="mr-2">
+          <span class="text-body-2 text-white">{{ (user?.firstName?.[0] || user?.email?.[0] || '?').toUpperCase() }}</span>
+        </v-avatar>
+        <span class="mr-4">{{ displayName }}</span>
         <v-btn variant="outlined" @click="logout">
           <v-icon start>mdi-logout</v-icon>
           Logout

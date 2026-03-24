@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     path: '/',
   })
 
-  return sendRedirect(event, '/auth/github')
+  return sendRedirect(event, useRuntimeConfig().authMode === 'local' ? '/register' : '/auth/github')
 })
 
 function sendInvalidInvitationPage(event: Parameters<typeof send>[0]) {

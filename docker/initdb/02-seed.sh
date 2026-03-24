@@ -16,20 +16,20 @@ SELECT id, name, description, date
 FROM json_to_recordset(:'events'::json)
   AS x(id uuid, name varchar, description text, date timestamp);
 
-INSERT INTO users (id, github_id, login, first_name, last_name, email, avatar_url)
-SELECT id, "githubId", login, "firstName", "lastName", email, "avatarUrl"
+INSERT INTO users (id, github_id, login, first_name, last_name, email, password_hash, avatar_url)
+SELECT id, "githubId", login, "firstName", "lastName", email, "passwordHash", "avatarUrl"
 FROM json_to_recordset(:'users'::json)
-  AS x(id uuid, "githubId" int, login varchar, "firstName" varchar, "lastName" varchar, email varchar, "avatarUrl" text);
+  AS x(id uuid, "githubId" int, login varchar, "firstName" varchar, "lastName" varchar, email varchar, "passwordHash" text, "avatarUrl" text);
 
-INSERT INTO invitees (id, event_id, first_name, last_name, email)
-SELECT id, "eventId", "firstName", "lastName", email
+INSERT INTO invitees (id, event_id, first_name, last_name, email, role)
+SELECT id, "eventId", "firstName", "lastName", email, COALESCE(role, 'participant')::invitee_role
 FROM json_to_recordset(:'invitees'::json)
-  AS x(id uuid, "eventId" uuid, "firstName" varchar, "lastName" varchar, email varchar);
+  AS x(id uuid, "eventId" uuid, "firstName" varchar, "lastName" varchar, email varchar, role varchar);
 
-INSERT INTO invitations (invitee_id, token, expires_at)
-SELECT "inviteeId", token, "expiresAt"
+INSERT INTO invitations (id, invitee_id, token, expires_at, used_at)
+SELECT id, "inviteeId", token, "expiresAt", "usedAt"
 FROM json_to_recordset(:'invitations'::json)
-  AS x("inviteeId" uuid, token uuid, "expiresAt" timestamp);
+  AS x(id uuid, "inviteeId" uuid, token uuid, "expiresAt" timestamp, "usedAt" timestamp);
 
 INSERT INTO user_events (user_id, event_id)
 SELECT "userId", "eventId"

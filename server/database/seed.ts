@@ -30,6 +30,7 @@ async function seed() {
     loadJson('invitations.json').map((i: Record<string, unknown>) => ({
       ...i,
       expiresAt: new Date(i.expiresAt as string),
+      ...(i.usedAt ? { usedAt: new Date(i.usedAt as string) } : {}),
     })),
   )
 
