@@ -1,4 +1,5 @@
-import { invitees } from '~/server/database/schema'
+import { invitees, inviteeRoleValues } from '~/server/database/schema'
+import type { InviteeRole } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
@@ -8,10 +9,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Event ID is required' })
   }
 
-  const body = await readBody<{ firstName: string; lastName: string; email: string }>(event)
+  const body = await readBody<{ firstName: string; lastName: string; email: string; role?: InviteeRole }>(event)
 
   if (!body.firstName || !body.lastName || !body.email) {
     throw createError({ statusCode: 400, statusMessage: 'firstName, lastName, and email are required' })
+  }
+
+  if (body.role && !inviteeRoleValues.includes(body.role)) {
+    throw createError({ statusCode: 400, statusMessage: `role must be one of: ${inviteeRoleValues.join(', ')}` })
   }
 
   const [created] = await useDB()
@@ -21,6 +26,7 @@ export default defineEventHandler(async (event) => {
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
+      role: body.role ?? 'participant',
     })
     .returning()
 
