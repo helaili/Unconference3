@@ -44,8 +44,8 @@ interface Event {
   date: string
 }
 
-const { data: event } = useFetch<Event>(`/api/events/${eventId}`)
-const { data: invitees, status, refresh } = useFetch<Invitee[]>(`/api/events/${eventId}/invitees`)
+const { data: event } = useAsyncData(`event-${eventId}`, () => $fetch<Event>(`/api/events/${eventId}`))
+const { data: invitees, status, refresh } = useAsyncData(`invitees-${eventId}`, () => $fetch<Invitee[]>(`/api/events/${eventId}/invitees`))
 
 useHead({ title: () => `Invitees - ${event.value?.name ?? 'Loading...'}` })
 
