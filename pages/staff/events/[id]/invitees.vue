@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ middleware: 'admin' })
+definePageMeta({ middleware: 'staff' })
 
 const route = useRoute()
 const eventId = route.params.id as string
@@ -223,7 +223,7 @@ async function deleteInvitee() {
   <v-container>
     <v-btn
       variant="text"
-      :to="'/admin/events'"
+      :to="'/staff/events'"
       prepend-icon="mdi-arrow-left"
       class="mb-4"
     >
