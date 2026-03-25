@@ -1,0 +1,8 @@
+{
+  "areas": [
+    {
+      "name": "test",
+      "applyTo": "test/**"
+    }
+  ]
+}
