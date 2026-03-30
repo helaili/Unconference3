@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { eq, and } from 'drizzle-orm'
-import { invitees } from '~/server/database/schema'
+import { useDB } from '../database'
+import { invitees } from '../database/schema'
 
 export function isAdmin(login: string): boolean {
   const adminLogins = (process.env.ADMIN_GITHUB_LOGINS || '').split(',').map(l => l.trim()).filter(Boolean)

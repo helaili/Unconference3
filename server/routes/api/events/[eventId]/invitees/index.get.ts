@@ -1,4 +1,5 @@
 import { eq } from 'drizzle-orm'
+import { useDB } from '../../../../../database'
 import { invitees } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
@@ -9,7 +10,13 @@ export default defineEventHandler(async (event) => {
   await requireAdminOrStaff(event, eventId)
 
   const db = useDB()
-  const result = await db.select().from(invitees).where(eq(invitees.eventId, eventId)).orderBy(invitees.lastName, invitees.firstName)
+  const result = await db.query.invitees.findMany({
+    where: eq(invitees.eventId, eventId),
+    with: {
+      invitations: true,
+    },
+    orderBy: [invitees.lastName, invitees.firstName],
+  })
 
   return result
 })
