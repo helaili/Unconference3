@@ -4,7 +4,7 @@ import { events } from '~/server/database/schema'
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
-  const id = getRouterParam(event, 'id')!
+  const id = getRouterParam(event, 'eventId')!
 
   const [deleted] = await useDB()
     .delete(events)
