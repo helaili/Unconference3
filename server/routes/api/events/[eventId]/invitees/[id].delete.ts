@@ -2,7 +2,11 @@ import { eq } from 'drizzle-orm'
 import { invitees } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const eventId = getRouterParam(event, 'eventId')
+  if (!eventId) {
+    throw createError({ statusCode: 400, statusMessage: 'Event ID is required' })
+  }
+  await requireAdminOrStaff(event, eventId)
 
   const id = getRouterParam(event, 'id')
   if (!id) {

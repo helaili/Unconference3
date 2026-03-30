@@ -2,9 +2,13 @@ import { eq } from 'drizzle-orm'
 import { events } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const id = getRouterParam(event, 'eventId')
 
-  const id = getRouterParam(event, 'eventId')!
+  if (!id) {
+    throw createError({ statusCode: 400, statusMessage: 'Event id is required' })
+  }
+
+  await requireAdminOrStaff(event, id)
 
   const [found] = await useDB()
     .select()

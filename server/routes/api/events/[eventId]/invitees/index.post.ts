@@ -2,12 +2,11 @@ import { invitees, inviteeRoleValues } from '~/server/database/schema'
 import type { InviteeRole } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
-
   const eventId = getRouterParam(event, 'eventId')
   if (!eventId) {
     throw createError({ statusCode: 400, statusMessage: 'Event ID is required' })
   }
+  await requireAdminOrStaff(event, eventId)
 
   const body = await readBody<{ firstName: string; lastName: string; email: string; role?: InviteeRole }>(event)
 

@@ -9,6 +9,13 @@ const { data: adminCheck } = useFetch('/api/admin/check', {
 
 const isAdmin = computed(() => adminCheck.value?.isAdmin ?? false)
 
+const { data: staffCheck } = useFetch('/api/staff/check', {
+  immediate: loggedIn.value,
+  watch: [loggedIn],
+})
+
+const isStaff = computed(() => staffCheck.value?.isStaff ?? false)
+
 const displayName = computed(() => {
   if (!user.value) return ''
   if (user.value.login) return user.value.login
@@ -28,9 +35,25 @@ const logout = async () => {
       <v-spacer />
 
       <template v-if="loggedIn">
-        <v-btn v-if="isAdmin" variant="text" to="/admin/events" class="mr-2">
-          <v-icon start>mdi-cog</v-icon>
-          Admin
+        <v-menu v-if="isAdmin">
+          <template #activator="{ props }">
+            <v-btn v-bind="props" variant="text" class="mr-2">
+              <v-icon start>mdi-cog</v-icon>
+              Admin
+            </v-btn>
+          </template>
+          <v-list>
+            <v-list-item to="/admin/events" prepend-icon="mdi-calendar">
+              <v-list-item-title>Events</v-list-item-title>
+            </v-list-item>
+            <v-list-item to="/admin/users" prepend-icon="mdi-account-group">
+              <v-list-item-title>Users</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+        <v-btn v-if="isStaff && !isAdmin" variant="text" to="/staff/events" class="mr-2">
+          <v-icon start>mdi-account-star</v-icon>
+          Staff
         </v-btn>
         <v-avatar v-if="user?.avatarUrl" size="32" class="mr-2">
           <v-img :src="user.avatarUrl" :alt="displayName" />
