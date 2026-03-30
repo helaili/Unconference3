@@ -2,7 +2,18 @@
   "areas": [
     {
       "name": "test",
-      "applyTo": "test/**"
+      "applyTo": "test/**",
+      "instructions": "TESTING.md"
+    },
+    {
+      "name": "api",
+      "applyTo": "server/api/**",
+      "instructions": "TESTING.md"
+    },
+    {
+      "name": "routes",
+      "applyTo": "server/routes/api/**",
+      "instructions": "TESTING.md"
     }
   ]
 }
