@@ -1,5 +1,7 @@
 import { events } from '~/server/database/schema'
 
+const logger = useLogger('events')
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
@@ -18,5 +20,6 @@ export default defineEventHandler(async (event) => {
     })
     .returning()
 
+  logger.info(`Event created: "${created.name}" (id: ${created.id})`)
   return created
 })

@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { invitees } from '~/server/database/schema'
 
+const logger = useLogger('invitees')
+
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
   if (!eventId) {
@@ -22,5 +24,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Invitee not found' })
   }
 
+  logger.info(`Invitee deleted: ${id} from event ${eventId}`)
   return { success: true }
 })

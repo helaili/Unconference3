@@ -1,6 +1,8 @@
 import { users } from '~/server/database/schema'
 import { eq } from 'drizzle-orm'
 
+const logger = useLogger('auth')
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   if (config.authMode !== 'local') {
@@ -22,11 +24,13 @@ export default defineEventHandler(async (event) => {
     .where(eq(users.email, body.email.trim().toLowerCase()))
 
   if (!dbUser || !dbUser.passwordHash) {
+    logger.warn(`Failed login attempt for: ${body.email}`)
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
   const valid = await verifyPassword(dbUser.passwordHash, body.password)
   if (!valid) {
+    logger.warn(`Failed login attempt for: ${body.email}`)
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
@@ -42,5 +46,6 @@ export default defineEventHandler(async (event) => {
     },
   })
 
+  logger.info(`User logged in: ${dbUser.email}`)
   return { ok: true }
 })

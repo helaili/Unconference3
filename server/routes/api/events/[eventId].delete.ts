@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { events } from '~/server/database/schema'
 
+const logger = useLogger('events')
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
@@ -15,5 +17,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Event not found' })
   }
 
+  logger.info(`Event deleted: ${id}`)
   return { success: true }
 })

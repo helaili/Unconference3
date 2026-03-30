@@ -1,5 +1,7 @@
 import { createTransport, type Transporter } from 'nodemailer'
 
+const logger = useLogger('email')
+
 let transporter: Transporter | null = null
 
 export function getTransporter(): Transporter {
@@ -71,10 +73,18 @@ export async function sendInvitationEmail({ to, firstName, eventName, inviteToke
     </html>
   `
 
-  return getTransporter().sendMail({
-    from: process.env.SMTP_FROM,
-    to,
-    subject: `You're invited to ${eventName}`,
-    html,
-  })
+  try {
+    const result = await getTransporter().sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject: `You're invited to ${eventName}`,
+      html,
+    })
+    logger.info(`Invitation email sent to ${to} for event "${eventName}"`)
+    return result
+  }
+  catch (error) {
+    logger.error(`Failed to send invitation email to ${to}:`, error)
+    throw error
+  }
 }

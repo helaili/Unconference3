@@ -3,7 +3,10 @@ import postgres from 'postgres'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createConsola } from 'consola'
 import * as schema from './schema'
+
+const logger = createConsola().withTag('seed')
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -16,7 +19,7 @@ const client = postgres(process.env.DATABASE_URL!)
 const db = drizzle(client, { schema })
 
 async function seed() {
-  console.log('Seeding database...')
+  logger.info('Seeding database...')
 
   await db.insert(schema.events).values(
     loadJson('events.json').map((e: Record<string, unknown>) => ({ ...e, date: new Date(e.date as string) })),
@@ -36,11 +39,11 @@ async function seed() {
 
   await db.insert(schema.userEvents).values(loadJson('user-events.json'))
 
-  console.log('Seeding complete!')
+  logger.success('Seeding complete!')
   await client.end()
 }
 
 seed().catch((err) => {
-  console.error(err)
+  logger.error('Seeding failed:', err)
   process.exit(1)
 })

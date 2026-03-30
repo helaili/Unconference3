@@ -1,5 +1,7 @@
 import { users } from '~/server/database/schema'
 
+const logger = useLogger('users')
+
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
@@ -39,5 +41,6 @@ export default defineEventHandler(async (event) => {
       updatedAt: users.updatedAt,
     })
 
+  logger.info(`User created: ${created.email} (id: ${created.id})`)
   return created
 })

@@ -1,10 +1,13 @@
 import { invitations, invitees } from '~/server/database/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
 
+const logger = useLogger('invitations')
+
 export default defineEventHandler(async (event) => {
   const token = getRouterParam(event, 'token')
 
   if (!token) {
+    logger.warn('Invitation link visited without token')
     return sendInvalidInvitationPage(event)
   }
 
@@ -19,6 +22,7 @@ export default defineEventHandler(async (event) => {
     ))
 
   if (!invitation) {
+    logger.warn(`Invalid or expired invitation token used`)
     return sendInvalidInvitationPage(event)
   }
 
@@ -30,6 +34,7 @@ export default defineEventHandler(async (event) => {
     path: '/',
   })
 
+  logger.info(`Invitation token validated for invitee ${invitation.invitees.email}`)
   return sendRedirect(event, useRuntimeConfig().authMode === 'local' ? '/register' : '/auth/github')
 })
 

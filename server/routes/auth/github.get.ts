@@ -1,6 +1,8 @@
 import { users, userEvents, invitations, invitees } from '~/server/database/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
 
+const logger = useLogger('auth')
+
 export default defineOAuthGitHubEventHandler({
   config: {
     emailRequired: true
@@ -21,6 +23,7 @@ export default defineOAuthGitHubEventHandler({
         ))
 
       if (!invitation) {
+        logger.warn('GitHub OAuth: invalid or expired invitation token')
         deleteCookie(event, 'invitation-token', { path: '/' })
         return sendRedirect(event, '/?error=invalid-invitation')
       }
@@ -74,6 +77,7 @@ export default defineOAuthGitHubEventHandler({
         },
       })
 
+      logger.info(`GitHub OAuth: user ${user.login} registered via invitation`)
       return sendRedirect(event, '/dashboard')
     }
 
@@ -86,6 +90,7 @@ export default defineOAuthGitHubEventHandler({
     })
 
     if (!existingUser) {
+      logger.warn(`GitHub OAuth: no invitation found for user ${user.login}`)
       return sendRedirect(event, '/?error=no-invitation')
     }
 
@@ -107,6 +112,8 @@ export default defineOAuthGitHubEventHandler({
       },
     })
 
+    logger.info(`GitHub OAuth: user ${existingUser.login} logged in`)
+
     if (hasEvents || userIsAdmin) {
       return sendRedirect(event, '/dashboard')
     }
@@ -114,7 +121,7 @@ export default defineOAuthGitHubEventHandler({
     return sendRedirect(event, '/')
   },
   onError(event, error) {
-    console.error('GitHub OAuth error:', error)
+    logger.error('GitHub OAuth error:', error)
     return sendRedirect(event, '/?error=auth')
   },
 })
