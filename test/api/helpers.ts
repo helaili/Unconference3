@@ -18,6 +18,16 @@ function loadJson(filename: string) {
 export async function migrateAndSeed() {
   const client = postgres(process.env.DATABASE_URL!)
 
+  // Drop all tables and custom types so migrations are idempotent across test files
+  await client.unsafe(`
+    DROP TABLE IF EXISTS user_events CASCADE;
+    DROP TABLE IF EXISTS invitations CASCADE;
+    DROP TABLE IF EXISTS invitees CASCADE;
+    DROP TABLE IF EXISTS users CASCADE;
+    DROP TABLE IF EXISTS events CASCADE;
+    DROP TYPE IF EXISTS invitee_role;
+  `)
+
   const migrationsDir = resolve(__dirname, '../../drizzle')
   const sqlFiles = readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql'))
@@ -60,8 +70,32 @@ export async function migrateAndSeed() {
   await client.end()
 }
 
+// ─── Shared constants ─────────────────────────────────────────
+export const ADMIN_EMAIL = 'helaili@github.com'
+export const REGULAR_USER_EMAIL = 'diana.rivera@example.com'
+export const TEST_PASSWORD = 'unconference'
+
 // Well-known IDs from test/db/ fixture files
 export const TEST_EVENT_ID = 'a0000000-0000-0000-0000-000000000001'
 export const TEST_INVITEE_ALICE_ID = 'c0000000-0000-0000-0000-000000000001'
 export const TEST_INVITEE_BOB_ID = 'c0000000-0000-0000-0000-000000000002'
 export const TEST_INVITEE_DIANA_ID = 'c0000000-0000-0000-0000-000000000010'
+
+/** Login via the API and return the session cookies string */
+export async function loginAs(
+  fetchFn: (path: string, options?: RequestInit) => Promise<Response>,
+  email: string,
+  password = TEST_PASSWORD,
+): Promise<string> {
+  const res = await fetchFn('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+    redirect: 'manual',
+  })
+  if (!res.ok) {
+    throw new Error(`Login failed for ${email}: ${res.status} ${await res.text()}`)
+  }
+  const setCookies = res.headers.getSetCookie()
+  return setCookies.map(c => c.split(';')[0]).join('; ')
+}

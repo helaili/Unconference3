@@ -19,6 +19,7 @@ export default defineConfig({
           include: ['test/api/*.{test,spec}.ts'],
           environment: 'node',
           testTimeout: 30_000,
+          fileParallelism: false,
         },
       },
       await defineVitestProject({
