@@ -31,7 +31,9 @@ const logout = async () => {
 <template>
   <v-app>
     <v-app-bar>
-      <v-app-bar-title>Unconference</v-app-bar-title>
+      <v-app-bar-title>
+        <NuxtLink to="/dashboard" class="text-decoration-none text-inherit">Unconference</NuxtLink>
+      </v-app-bar-title>
       <v-spacer />
 
       <template v-if="loggedIn">

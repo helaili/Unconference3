@@ -6,6 +6,7 @@
     "firstName": "Test",
     "lastName": "User",
     "email": "test@example.com",
+    "passwordHash": "$scrypt$n=16384,r=8,p=1$B5HPzMdH8yuMSDzaS4wZqg$8eVXQl1d+uOCXkwQMixuR5gqI1o78+uhUjnTgk2CMIT5SRuTu4XkNAVDamexkA39sLal+pvBTgHKKKrj1RgKNw",
     "avatarUrl": "https://avatars.githubusercontent.com/u/12345"
   },
   {

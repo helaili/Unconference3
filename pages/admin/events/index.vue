@@ -7,14 +7,19 @@ interface EventItem {
   name: string
   description: string | null
   date: string | null
+  submissionRestricted: boolean
   createdAt: string
   updatedAt: string
+  inviteeCount: number
+  sessionCount: number
 }
 
 const headers = [
   { title: 'Name', key: 'name' },
   { title: 'Description', key: 'description' },
   { title: 'Date', key: 'date' },
+  { title: 'Participants', key: 'inviteeCount', sortable: true },
+  { title: 'Sessions', key: 'sessionCount', sortable: true },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
 
@@ -31,6 +36,7 @@ const form = ref({
   name: '',
   description: '',
   date: '',
+  submissionRestricted: false,
 })
 
 function formatDate(date: string | null): string {
@@ -60,6 +66,7 @@ function openEdit(event: EventItem) {
     name: event.name,
     description: event.description ?? '',
     date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
+    submissionRestricted: event.submissionRestricted,
   }
   actionError.value = ''
   dialog.value = true
@@ -85,6 +92,7 @@ async function save() {
       name: form.value.name.trim(),
       description: form.value.description.trim() || undefined,
       date: form.value.date || undefined,
+      submissionRestricted: form.value.submissionRestricted,
     }
 
     if (editingEvent.value) {
@@ -167,6 +175,16 @@ async function confirmDelete() {
           <v-icon>mdi-account-multiple</v-icon>
           <v-tooltip activator="parent" location="top">Manage Invitees</v-tooltip>
         </v-btn>
+        <v-btn
+          icon
+          size="small"
+          variant="text"
+          color="teal"
+          :to="`/admin/events/${item.id}/sessions`"
+        >
+          <v-icon>mdi-presentation</v-icon>
+          <v-tooltip activator="parent" location="top">Manage Sessions</v-tooltip>
+        </v-btn>
         <v-btn icon size="small" variant="text" color="error" @click="openDelete(item)">
           <v-icon>mdi-delete</v-icon>
           <v-tooltip activator="parent" location="top">Delete</v-tooltip>
@@ -199,6 +217,12 @@ async function confirmDelete() {
             v-model="form.date"
             label="Date"
             type="date"
+          />
+          <v-switch
+            v-model="form.submissionRestricted"
+            label="Restrict session submission to staff and admins"
+            color="primary"
+            density="compact"
           />
         </v-card-text>
         <v-card-actions>
