@@ -56,9 +56,6 @@ const { data: events, status: eventsStatus } = useFetch<EventStats[]>('/api/even
       <template v-if="adminCheck?.isAdmin">
         <div class="d-flex align-center justify-space-between mb-4">
           <h2 class="text-h5">All Events</h2>
-          <v-btn color="primary" prepend-icon="mdi-cog" to="/admin/events" variant="tonal">
-            Manage Events
-          </v-btn>
         </div>
 
         <v-progress-linear v-if="eventsStatus === 'pending'" indeterminate color="primary" class="mb-4" />
