@@ -6,6 +6,7 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   primaryKey,
   unique,
 } from 'drizzle-orm/pg-core'
@@ -16,12 +17,17 @@ export const inviteeRoleValues = ['participant', 'moderator', 'staff'] as const
 export type InviteeRole = (typeof inviteeRoleValues)[number]
 export const inviteeRoleEnum = pgEnum('invitee_role', inviteeRoleValues)
 
+export const sessionStatusValues = ['proposed', 'published', 'scheduled', 'delivered'] as const
+export type SessionStatus = (typeof sessionStatusValues)[number]
+export const sessionStatusEnum = pgEnum('session_status', sessionStatusValues)
+
 // ── Events ──────────────────────────────────────────────────────────────────
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
   date: timestamp('date', { mode: 'date' }),
+  submissionRestricted: boolean('submission_restricted').notNull().default(false),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })
@@ -29,6 +35,7 @@ export const events = pgTable('events', {
 export const eventsRelations = relations(events, ({ many }) => ({
   invitees: many(invitees),
   userEvents: many(userEvents),
+  sessions: many(sessions),
 }))
 
 // ── Invitees ────────────────────────────────────────────────────────────────
@@ -88,6 +95,7 @@ export const users = pgTable('users', {
 
 export const usersRelations = relations(users, ({ many }) => ({
   userEvents: many(userEvents),
+  sessions: many(sessions),
 }))
 
 // ── User Events (join table) ────────────────────────────────────────────────
@@ -107,4 +115,26 @@ export const userEvents = pgTable(
 export const userEventsRelations = relations(userEvents, ({ one }) => ({
   user: one(users, { fields: [userEvents.userId], references: [users.id] }),
   event: one(events, { fields: [userEvents.eventId], references: [events.id] }),
+}))
+
+// ── Sessions ─────────────────────────────────────────────────────────────────
+export const sessions = pgTable('sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  authorId: uuid('author_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description'),
+  tags: text('tags').array().notNull().default([]),
+  status: sessionStatusEnum('status').notNull().default('proposed'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+})
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  event: one(events, { fields: [sessions.eventId], references: [events.id] }),
+  author: one(users, { fields: [sessions.authorId], references: [users.id] }),
 }))

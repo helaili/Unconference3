@@ -20,11 +20,13 @@ export async function migrateAndSeed() {
 
   // Drop all tables and custom types so migrations are idempotent across test files
   await client.unsafe(`
+    DROP TABLE IF EXISTS sessions CASCADE;
     DROP TABLE IF EXISTS user_events CASCADE;
     DROP TABLE IF EXISTS invitations CASCADE;
     DROP TABLE IF EXISTS invitees CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
+    DROP TYPE IF EXISTS session_status;
     DROP TYPE IF EXISTS invitee_role;
   `)
 
@@ -67,6 +69,12 @@ export async function migrateAndSeed() {
 
   await db.insert(schema.userEvents).values(loadJson('user-events.json'))
 
+  await db.insert(schema.sessions).values(
+    loadJson('sessions.json').map((s: Record<string, unknown>) => ({
+      ...s,
+    })),
+  )
+
   await client.end()
 }
 
@@ -80,6 +88,19 @@ export const TEST_EVENT_ID = 'a0000000-0000-0000-0000-000000000001'
 export const TEST_INVITEE_ALICE_ID = 'c0000000-0000-0000-0000-000000000001'
 export const TEST_INVITEE_BOB_ID = 'c0000000-0000-0000-0000-000000000002'
 export const TEST_INVITEE_DIANA_ID = 'c0000000-0000-0000-0000-000000000010'
+
+// Session fixture IDs
+export const TEST_SESSION_PROPOSED_BY_DIANA_ID = 'd0000000-0000-0000-0000-000000000001'
+export const TEST_SESSION_PUBLISHED_ID = 'd0000000-0000-0000-0000-000000000002'
+export const TEST_SESSION_SCHEDULED_ID = 'd0000000-0000-0000-0000-000000000003'
+export const TEST_SESSION_DELIVERED_ID = 'd0000000-0000-0000-0000-000000000004'
+export const TEST_SESSION_PROPOSED_BY_NOAH_ID = 'd0000000-0000-0000-0000-000000000005'
+export const TEST_SESSION_STAFF_PUBLISHED_ID = 'd0000000-0000-0000-0000-000000000006'
+
+// Additional user emails for test logins
+export const STAFF_USER_EMAIL = 'liam.obrien@example.com'
+export const PARTICIPANT_USER_EMAIL = 'noah.williams@example.com'
+export const OUTSIDER_EMAIL = 'test@example.com' // valid user but NOT in the test event's invitees
 
 /** Login via the API and return the session cookies string */
 export async function loginAs(

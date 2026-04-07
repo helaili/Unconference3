@@ -1,0 +1,56 @@
+[
+  {
+    "id": "d0000000-0000-0000-0000-000000000001",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000010",
+    "title": "Introduction to Unconferencing",
+    "description": "How to make the most of an unconference format.",
+    "tags": ["meta", "facilitation"],
+    "status": "proposed"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000002",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000010",
+    "title": "AI Tools for Developers",
+    "description": "Exploring AI coding assistants and their workflows.",
+    "tags": ["ai", "developer-tools"],
+    "status": "published"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000003",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000010",
+    "title": "Open Source Sustainability",
+    "description": "Funding models and community health for open source projects.",
+    "tags": ["open-source", "sustainability"],
+    "status": "scheduled"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000004",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000010",
+    "title": "Past: Security Best Practices",
+    "description": "A delivered session on modern security practices.",
+    "tags": ["security"],
+    "status": "delivered"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000005",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000019",
+    "title": "Noah's Proposed Talk",
+    "description": "A proposed session from a participant.",
+    "tags": ["community"],
+    "status": "proposed"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000006",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000015",
+    "title": "Staff Session: Workshop Design",
+    "description": "Published session authored by staff member Liam.",
+    "tags": ["workshop"],
+    "status": "published"
+  }
+]
