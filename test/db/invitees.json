@@ -259,5 +259,21 @@
     "lastName": "Sharma",
     "email": "priya.sharma@example.com",
     "role": "participant"
+  },
+  {
+    "id": "c0000000-0000-0000-0000-000000000040",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "firstName": "Alain",
+    "lastName": "Withaccount",
+    "email": "halain987+withaccount@gmail.com",
+    "role": "participant"
+  },
+  {
+    "id": "c0000000-0000-0000-0000-000000000041",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "firstName": "Alain",
+    "lastName": "Withoutaccount",
+    "email": "halain987+withaoutccount@gmail.com",
+    "role": "participant"
   }
 ]

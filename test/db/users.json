@@ -144,5 +144,12 @@
     "lastName": "Jackson",
     "email": "james.jackson@example.com",
     "passwordHash": "$scrypt$n=16384,r=8,p=1$B5HPzMdH8yuMSDzaS4wZqg$8eVXQl1d+uOCXkwQMixuR5gqI1o78+uhUjnTgk2CMIT5SRuTu4XkNAVDamexkA39sLal+pvBTgHKKKrj1RgKNw"
+  },
+  {
+    "id": "b0000000-0000-0000-0000-000000000040",
+    "firstName": "Alain",
+    "lastName": "Withaccount",
+    "email": "halain987+withaccount@gmail.com",
+    "passwordHash": "$scrypt$n=16384,r=8,p=1$B5HPzMdH8yuMSDzaS4wZqg$8eVXQl1d+uOCXkwQMixuR5gqI1o78+uhUjnTgk2CMIT5SRuTu4XkNAVDamexkA39sLal+pvBTgHKKKrj1RgKNw"
   }
 ]
