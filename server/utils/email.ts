@@ -1,6 +1,18 @@
 import { createTransport, type Transporter } from 'nodemailer'
+import sgMail from '@sendgrid/mail'
 
 const logger = useLogger('email')
+
+/** Resolve the email provider from the environment. Defaults to 'smtp'. */
+export function getEmailProvider(): 'smtp' | 'sendgrid' {
+  const provider = (process.env.EMAIL_PROVIDER ?? 'smtp').toLowerCase()
+  if (provider !== 'smtp' && provider !== 'sendgrid') {
+    throw new Error(`Invalid EMAIL_PROVIDER "${provider}". Must be "smtp" or "sendgrid".`)
+  }
+  return provider
+}
+
+// ─── SMTP ─────────────────────────────────────────────────────────────────────
 
 let transporter: Transporter | null = null
 
@@ -18,6 +30,24 @@ export function getTransporter(): Transporter {
   return transporter
 }
 
+// ─── SendGrid ─────────────────────────────────────────────────────────────────
+
+function getSendGridClient(): typeof sgMail {
+  const apiKey = process.env.SENDGRID_API_KEY
+  if (!apiKey) {
+    throw new Error('SENDGRID_API_KEY environment variable is required when EMAIL_PROVIDER=sendgrid')
+  }
+  sgMail.setApiKey(apiKey)
+  return sgMail
+}
+
+// ─── Shared ───────────────────────────────────────────────────────────────────
+
+/** Resolve the sender address. EMAIL_FROM takes precedence; falls back to SMTP_FROM. */
+function getFromAddress(): string {
+  return process.env.EMAIL_FROM ?? process.env.SMTP_FROM ?? ''
+}
+
 interface InvitationEmailParams {
   to: string
   firstName: string
@@ -25,10 +55,8 @@ interface InvitationEmailParams {
   inviteToken: string
 }
 
-export async function sendInvitationEmail({ to, firstName, eventName, inviteToken }: InvitationEmailParams) {
-  const inviteUrl = `${process.env.APP_URL}/invite/${inviteToken}`
-
-  const html = `
+function buildInvitationHtml(firstName: string, eventName: string, inviteUrl: string): string {
+  return `
     <!DOCTYPE html>
     <html lang="en">
     <head><meta charset="UTF-8" /></head>
@@ -72,16 +100,25 @@ export async function sendInvitationEmail({ to, firstName, eventName, inviteToke
     </body>
     </html>
   `
+}
+
+export async function sendInvitationEmail({ to, firstName, eventName, inviteToken }: InvitationEmailParams) {
+  const inviteUrl = `${process.env.APP_URL}/invite/${inviteToken}`
+  const html = buildInvitationHtml(firstName, eventName, inviteUrl)
+  const subject = `You're invited to ${eventName}`
+  const from = getFromAddress()
 
   try {
-    const result = await getTransporter().sendMail({
-      from: process.env.SMTP_FROM,
-      to,
-      subject: `You're invited to ${eventName}`,
-      html,
-    })
-    logger.info(`Invitation email sent to ${to} for event "${eventName}"`)
-    return result
+    const provider = getEmailProvider()
+
+    if (provider === 'sendgrid') {
+      await getSendGridClient().send({ from, to, subject, html })
+    }
+    else {
+      await getTransporter().sendMail({ from, to, subject, html })
+    }
+
+    logger.info(`Invitation email sent to ${to} for event "${eventName}" via ${provider}`)
   }
   catch (error) {
     logger.error(`Failed to send invitation email to ${to}:`, error)
