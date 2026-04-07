@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm'
 import { invitees, invitations, events } from '~/server/database/schema'
 
+const logger = useLogger('invitations')
+
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
   const inviteeId = getRouterParam(event, 'inviteeId')
@@ -43,5 +45,6 @@ export default defineEventHandler(async (event) => {
     inviteToken: invitation.token,
   })
 
+  logger.info(`Invitation sent to ${invitee.email} for event "${eventRecord.name}"`)
   return { success: true, invitation }
 })

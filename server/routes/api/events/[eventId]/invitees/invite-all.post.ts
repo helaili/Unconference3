@@ -1,6 +1,8 @@
 import { eq, and, gt, isNull } from 'drizzle-orm'
 import { invitees, invitations, events } from '~/server/database/schema'
 
+const logger = useLogger('invitations')
+
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
   if (!eventId) {
@@ -53,5 +55,6 @@ export default defineEventHandler(async (event) => {
     invited++
   }
 
+  logger.info(`Bulk invitations sent: ${invited} invitees for event "${eventRecord.name}"`)
   return { success: true, invited }
 })

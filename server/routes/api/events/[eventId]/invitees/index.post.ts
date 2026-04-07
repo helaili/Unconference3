@@ -1,6 +1,8 @@
 import { invitees, inviteeRoleValues } from '~/server/database/schema'
 import type { InviteeRole } from '~/server/database/schema'
 
+const logger = useLogger('invitees')
+
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
   if (!eventId) {
@@ -29,5 +31,6 @@ export default defineEventHandler(async (event) => {
     })
     .returning()
 
+  logger.info(`Invitee added: ${created.email} to event ${eventId} (role: ${created.role})`)
   return created
 })

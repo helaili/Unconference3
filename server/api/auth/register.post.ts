@@ -1,6 +1,8 @@
 import { users, userEvents, invitations, invitees } from '~/server/database/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
 
+const logger = useLogger('auth')
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   if (config.authMode !== 'local') {
@@ -39,6 +41,7 @@ export default defineEventHandler(async (event) => {
     ))
 
   if (!invitation) {
+    logger.warn('Registration attempt with invalid or expired invitation token')
     deleteCookie(event, 'invitation-token', { path: '/' })
     throw createError({ statusCode: 400, statusMessage: 'Invalid or expired invitation' })
   }
@@ -51,6 +54,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(users.email, body.email.trim().toLowerCase()))
 
   if (existingUser) {
+    logger.warn(`Registration attempt with existing email: ${body.email}`)
     throw createError({ statusCode: 409, statusMessage: 'An account with this email already exists' })
   }
 
@@ -89,5 +93,6 @@ export default defineEventHandler(async (event) => {
     },
   })
 
+  logger.info(`New user registered: ${dbUser.email}`)
   return { ok: true }
 })
