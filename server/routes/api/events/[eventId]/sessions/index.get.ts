@@ -2,6 +2,38 @@ import { eq, and, inArray } from 'drizzle-orm'
 import { sessions, users } from '~/server/database/schema'
 import type { SessionStatus } from '~/server/database/schema'
 
+// Shape returned for each session (raw row + flattened author fields)
+type SessionRow = typeof sessions.$inferSelect & {
+  authorFirstName: string | null
+  authorLastName: string | null
+  authorEmail: string | null
+}
+
+async function fetchSessions(
+  db: ReturnType<typeof useDB>,
+  conditions: Parameters<typeof and>,
+): Promise<SessionRow[]> {
+  return db
+    .select({
+      id: sessions.id,
+      eventId: sessions.eventId,
+      authorId: sessions.authorId,
+      authorFirstName: users.firstName,
+      authorLastName: users.lastName,
+      authorEmail: users.email,
+      title: sessions.title,
+      description: sessions.description,
+      tags: sessions.tags,
+      status: sessions.status,
+      createdAt: sessions.createdAt,
+      updatedAt: sessions.updatedAt,
+    })
+    .from(sessions)
+    .leftJoin(users, eq(sessions.authorId, users.id))
+    .where(and(...conditions))
+    .orderBy(sessions.createdAt)
+}
+
 const logger = useLogger('sessions')
 
 export default defineEventHandler(async (event) => {
@@ -61,18 +93,14 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const rows: Array<typeof sessions.$inferSelect> = []
+  const rows: SessionRow[] = []
 
   if (!skipMainQuery) {
-    const conditions = [eq(sessions.eventId, eventId)]
+    const conditions: Parameters<typeof and> = [eq(sessions.eventId, eventId)]
     if (statusFilter) {
       conditions.push(inArray(sessions.status, statusFilter))
     }
-    const fetched = await db
-      .select()
-      .from(sessions)
-      .where(and(...conditions))
-      .orderBy(sessions.createdAt)
+    const fetched = await fetchSessions(db, conditions)
     rows.push(...fetched)
   }
 
@@ -88,14 +116,11 @@ export default defineEventHandler(async (event) => {
         .limit(1)
 
       if (dbUser) {
-        const ownProposed = await db
-          .select()
-          .from(sessions)
-          .where(and(
-            eq(sessions.eventId, eventId),
-            eq(sessions.authorId, dbUser.id),
-            eq(sessions.status, 'proposed'),
-          ))
+        const ownProposed = await fetchSessions(db, [
+          eq(sessions.eventId, eventId),
+          eq(sessions.authorId, dbUser.id),
+          eq(sessions.status, 'proposed'),
+        ])
 
         const existingIds = new Set(rows.map(r => r.id))
         for (const s of ownProposed) {

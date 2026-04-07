@@ -2,45 +2,157 @@
 definePageMeta({ middleware: 'auth' })
 useHead({ title: 'Dashboard' })
 
-const { user } = useUserSession()
+interface EventStats {
+  id: string
+  name: string
+  description: string | null
+  date: string | null
+  inviteeCount: number
+  sessionCount: number
+}
 
-const { data: profile, status, error } = useFetch('/api/me', { lazy: false })
+interface Profile {
+  firstName?: string
+  events: Array<{ id: string; name: string; description: string | null; date: string | null }>
+}
+
+const { data: adminCheck } = useFetch<{ isAdmin: boolean }>('/api/admin/check', { lazy: false })
+const { data: profile, status: profileStatus, error: profileError } = useFetch<Profile>('/api/me', { lazy: false })
+const { data: events, status: eventsStatus } = useFetch<EventStats[]>('/api/events', {
+  lazy: false,
+  immediate: computed(() => adminCheck.value?.isAdmin === true),
+})
 </script>
 
 <template>
-  <div class="d-flex flex-column align-center justify-center" style="min-height: 60vh;">
-    <!-- Loading -->
-    <div v-if="status === 'pending'" class="d-flex flex-column align-center">
+  <div>
+    <!-- ── Loading ─────────────────────────────────────────────────────────── -->
+    <div
+      v-if="profileStatus === 'pending'"
+      class="d-flex flex-column align-center justify-center"
+      style="min-height: 60vh;"
+    >
       <v-progress-circular indeterminate color="primary" size="48" class="mb-4" />
       <p class="text-body-1 text-grey">Loading your dashboard…</p>
     </div>
 
-    <!-- Error -->
-    <v-alert v-else-if="status === 'error'" type="error" variant="tonal" class="mb-6" max-width="600">
-      {{ error?.message || 'Failed to load your profile. Please try again later.' }}
+    <!-- ── Error ──────────────────────────────────────────────────────────── -->
+    <v-alert
+      v-else-if="profileStatus === 'error'"
+      type="error"
+      variant="tonal"
+      class="mb-6"
+      max-width="600"
+    >
+      {{ profileError?.message || 'Failed to load your profile. Please try again later.' }}
     </v-alert>
 
-    <!-- Dashboard content -->
     <template v-else-if="profile">
       <h1 class="text-h4 mb-6">
         Welcome{{ profile.firstName ? `, ${profile.firstName}` : '' }}!
       </h1>
 
-      <h2 class="text-h5 mb-4">Your Events</h2>
+      <!-- ── Admin view: event stats ──────────────────────────────────────── -->
+      <template v-if="adminCheck?.isAdmin">
+        <div class="d-flex align-center justify-space-between mb-4">
+          <h2 class="text-h5">All Events</h2>
+          <v-btn color="primary" prepend-icon="mdi-cog" to="/admin/events" variant="tonal">
+            Manage Events
+          </v-btn>
+        </div>
 
-      <div v-if="profile.events && profile.events.length > 0" class="d-flex flex-column ga-4" style="width: 100%; max-width: 600px;">
-        <v-card v-for="event in profile.events" :key="event.id" variant="outlined">
-          <v-card-title>{{ event.name }}</v-card-title>
-          <v-card-subtitle>
-            {{ event.date ? new Date(event.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) : 'No date set' }}
-          </v-card-subtitle>
-          <v-card-text v-if="event.description">{{ event.description }}</v-card-text>
-        </v-card>
-      </div>
+        <v-progress-linear v-if="eventsStatus === 'pending'" indeterminate color="primary" class="mb-4" />
 
-      <v-alert v-else type="info" variant="tonal" max-width="600">
-        You're not part of any events yet.
-      </v-alert>
+        <v-row v-else-if="events && events.length > 0">
+          <v-col
+            v-for="ev in events"
+            :key="ev.id"
+            cols="12"
+            sm="6"
+            lg="4"
+          >
+            <v-card variant="outlined" height="100%">
+              <v-card-title class="text-body-1 font-weight-bold pb-1">
+                {{ ev.name }}
+              </v-card-title>
+              <v-card-subtitle class="pb-1">
+                {{ ev.date
+                  ? new Date(ev.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                  : 'No date set' }}
+              </v-card-subtitle>
+              <v-card-text class="pb-1">
+                <p v-if="ev.description" class="text-body-2 mb-3 text-medium-emphasis">
+                  {{ ev.description }}
+                </p>
+                <div class="d-flex ga-4">
+                  <div class="d-flex align-center ga-1">
+                    <v-icon size="small" color="secondary">mdi-account-multiple</v-icon>
+                    <span class="text-body-2">{{ ev.inviteeCount }} participant{{ ev.inviteeCount !== 1 ? 's' : '' }}</span>
+                  </div>
+                  <div class="d-flex align-center ga-1">
+                    <v-icon size="small" color="teal">mdi-presentation</v-icon>
+                    <span class="text-body-2">{{ ev.sessionCount }} session{{ ev.sessionCount !== 1 ? 's' : '' }}</span>
+                  </div>
+                </div>
+              </v-card-text>
+              <v-card-actions class="pt-0">
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="secondary"
+                  :to="`/admin/events/${ev.id}/invitees`"
+                  prepend-icon="mdi-account-multiple"
+                >
+                  Invitees
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="teal"
+                  :to="`/admin/events/${ev.id}/sessions`"
+                  prepend-icon="mdi-presentation"
+                >
+                  Sessions
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-alert v-else type="info" variant="tonal" max-width="600">
+          No events yet. <v-btn variant="text" to="/admin/events">Create one</v-btn>
+        </v-alert>
+      </template>
+
+      <!-- ── Participant view: own events ────────────────────────────────── -->
+      <template v-else>
+        <h2 class="text-h5 mb-4">Your Events</h2>
+
+        <div
+          v-if="profile.events && profile.events.length > 0"
+          class="d-flex flex-column ga-4"
+          style="width: 100%; max-width: 600px;"
+        >
+          <v-card
+            v-for="event in profile.events"
+            :key="event.id"
+            variant="outlined"
+          >
+            <v-card-title>{{ event.name }}</v-card-title>
+            <v-card-subtitle>
+              {{ event.date
+                ? new Date(event.date).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                : 'No date set' }}
+            </v-card-subtitle>
+            <v-card-text v-if="event.description">{{ event.description }}</v-card-text>
+          </v-card>
+        </div>
+
+        <v-alert v-else type="info" variant="tonal" max-width="600">
+          You're not part of any events yet.
+        </v-alert>
+      </template>
     </template>
   </div>
 </template>
+
