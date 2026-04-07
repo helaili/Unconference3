@@ -9,6 +9,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v invitees="$(cat /testdata/invitees.json)" \
   -v invitations="$(cat /testdata/invitations.json)" \
   -v user_events="$(cat /testdata/user-events.json)" \
+  -v sessions="$(cat /testdata/sessions.json)" \
   <<'EOSQL'
 
 INSERT INTO events (id, name, description, date)
@@ -27,7 +28,7 @@ FROM json_to_recordset(:'invitees'::json)
   AS x(id uuid, "eventId" uuid, "firstName" varchar, "lastName" varchar, email varchar, role varchar);
 
 INSERT INTO invitations (id, invitee_id, token, expires_at, used_at)
-SELECT id, "inviteeId", token, "expiresAt", "usedAt"
+SELECT COALESCE(id, gen_random_uuid()), "inviteeId", token, "expiresAt", "usedAt"
 FROM json_to_recordset(:'invitations'::json)
   AS x(id uuid, "inviteeId" uuid, token uuid, "expiresAt" timestamp, "usedAt" timestamp);
 
@@ -35,6 +36,13 @@ INSERT INTO user_events (user_id, event_id)
 SELECT "userId", "eventId"
 FROM json_to_recordset(:'user_events'::json)
   AS x("userId" uuid, "eventId" uuid);
+
+INSERT INTO sessions (id, event_id, author_id, title, description, tags, status)
+SELECT id, "eventId", "authorId", title, description,
+  ARRAY(SELECT json_array_elements_text(tags::json))::text[],
+  status::session_status
+FROM json_to_recordset(:'sessions'::json)
+  AS x(id uuid, "eventId" uuid, "authorId" uuid, title varchar, description text, tags text, status varchar);
 
 EOSQL
 

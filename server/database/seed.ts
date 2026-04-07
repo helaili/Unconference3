@@ -39,6 +39,8 @@ async function seed() {
 
   await db.insert(schema.userEvents).values(loadJson('user-events.json'))
 
+  await db.insert(schema.sessions).values(loadJson('sessions.json'))
+
   logger.success('Seeding complete!')
   await client.end()
 }
