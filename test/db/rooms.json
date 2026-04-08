@@ -1,0 +1,23 @@
+[
+  {
+    "id": "e0000000-0000-0000-0000-000000000001",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Main Hall",
+    "description": "Large auditorium with projector and stage.",
+    "capacity": 200
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000002",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Workshop Room A",
+    "description": "Small room suitable for hands-on workshops.",
+    "capacity": 30
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000003",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Breakout Space",
+    "description": null,
+    "capacity": null
+  }
+]

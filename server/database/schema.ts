@@ -36,6 +36,7 @@ export const eventsRelations = relations(events, ({ many }) => ({
   invitees: many(invitees),
   userEvents: many(userEvents),
   sessions: many(sessions),
+  rooms: many(rooms),
 }))
 
 // ── Invitees ────────────────────────────────────────────────────────────────
@@ -137,4 +138,21 @@ export const sessions = pgTable('sessions', {
 export const sessionsRelations = relations(sessions, ({ one }) => ({
   event: one(events, { fields: [sessions.eventId], references: [events.id] }),
   author: one(users, { fields: [sessions.authorId], references: [users.id] }),
+}))
+
+// ── Rooms ────────────────────────────────────────────────────────────────────
+export const rooms = pgTable('rooms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  capacity: integer('capacity'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+})
+
+export const roomsRelations = relations(rooms, ({ one }) => ({
+  event: one(events, { fields: [rooms.eventId], references: [events.id] }),
 }))

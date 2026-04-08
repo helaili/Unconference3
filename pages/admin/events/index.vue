@@ -169,6 +169,16 @@ async function confirmDelete() {
           icon
           size="small"
           variant="text"
+          color="orange"
+          :to="`/admin/events/${item.id}/rooms`"
+        >
+          <v-icon>mdi-door</v-icon>
+          <v-tooltip activator="parent" location="top">Manage Rooms</v-tooltip>
+        </v-btn>
+        <v-btn
+          icon
+          size="small"
+          variant="text"
           color="secondary"
           :to="`/admin/events/${item.id}/invitees`"
         >
