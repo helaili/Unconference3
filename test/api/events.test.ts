@@ -10,11 +10,13 @@ import {
   TEST_INVITEE_ALICE_ID,
   TEST_INVITEE_BOB_ID,
   TEST_INVITEE_DIANA_ID,
+  OUTSIDER_EMAIL,
 } from './helpers'
 
 describe('Events Endpoints', async () => {
   let adminCookies: string
   let userCookies: string
+  let outsiderCookies: string
 
   await setup({
     rootDir: fileURLToPath(new URL('../..', import.meta.url)),
@@ -34,6 +36,7 @@ describe('Events Endpoints', async () => {
     await migrateAndSeed()
     adminCookies = await loginAs(fetch, ADMIN_EMAIL)
     userCookies = await loginAs(fetch, REGULAR_USER_EMAIL)
+    outsiderCookies = await loginAs(fetch, OUTSIDER_EMAIL)
   })
 
   // ─── Events CRUD ────────────────────────────────────────────────
@@ -110,11 +113,27 @@ describe('Events Endpoints', async () => {
   })
 
   describe('GET /api/events/:id', () => {
-    it('returns 403 for non-admin', async () => {
+    it('returns 401 for unauthenticated request', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`)
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 403 for authenticated user not in the event', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        headers: { Cookie: outsiderCookies },
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('returns 200 with event details for an event member', async () => {
       const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
         headers: { Cookie: userCookies },
       })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(200)
+      const event = await res.json() as Record<string, unknown>
+      expect(event.id).toBe(TEST_EVENT_ID)
+      expect(event.name).toBe('Unconference 2026')
+      expect(event.description).toBe('The best unconference ever')
     })
 
     it('returns 404 for non-existent event', async () => {
@@ -124,7 +143,7 @@ describe('Events Endpoints', async () => {
       expect(res.status).toBe(404)
     })
 
-    it('returns the seeded event', async () => {
+    it('returns the seeded event for admin', async () => {
       const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
         headers: { Cookie: adminCookies },
       })

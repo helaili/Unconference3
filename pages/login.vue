@@ -4,15 +4,31 @@ useHead({ title: 'Sign In' })
 const { loggedIn } = useUserSession()
 const { authMode } = useRuntimeConfig().public
 
-// Redirect if already logged in or not in local mode
+// Redirect if not in local mode
 watchEffect(() => {
-  if (loggedIn.value) {
-    navigateTo('/dashboard')
-  }
   if (authMode !== 'local') {
     navigateTo('/')
   }
 })
+
+// Redirect already-logged-in users to the dashboard (which handles per-event redirects)
+watchEffect(() => {
+  if (loggedIn.value) {
+    navigateTo('/dashboard')
+  }
+})
+
+async function redirectAfterLogin() {
+  try {
+    const profile = await $fetch<{ id: string; events: Array<{ id: string }> }>('/api/me')
+    if (profile.events?.length === 1) {
+      return navigateTo(`/events/${profile.events[0].id}`)
+    }
+  } catch {
+    // fall through to dashboard on error
+  }
+  return navigateTo('/dashboard')
+}
 
 const email = ref('')
 const password = ref('')
@@ -30,7 +46,7 @@ const login = async () => {
     })
     // Refresh session and redirect
     await useUserSession().fetch()
-    navigateTo('/dashboard')
+    await redirectAfterLogin()
   } catch (e: unknown) {
     const message = e && typeof e === 'object' && 'data' in e
       ? (e as { data?: { message?: string } }).data?.message
