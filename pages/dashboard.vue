@@ -122,6 +122,24 @@ watch(
                 >
                   Sessions
                 </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="deep-purple"
+                  :to="`/admin/events/${ev.id}/rooms`"
+                  prepend-icon="mdi-door"
+                >
+                  Rooms
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  to="/admin/events"
+                  prepend-icon="mdi-pencil"
+                >
+                  Edit
+                </v-btn>
               </v-card-actions>
             </v-card>
           </v-col>
