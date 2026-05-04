@@ -22,6 +22,17 @@ const { data: events, status: eventsStatus } = useFetch<EventStats[]>('/api/even
   lazy: false,
   immediate: computed(() => adminCheck.value?.isAdmin === true),
 })
+
+// Redirect non-admin participants who belong to exactly one event directly to that event
+watch(
+  [profile, adminCheck],
+  ([p, a]) => {
+    if (p && a !== undefined && !a.isAdmin && p.events?.length === 1) {
+      navigateTo(`/events/${p.events[0].id}`)
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
