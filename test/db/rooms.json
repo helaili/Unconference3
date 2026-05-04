@@ -1,0 +1,59 @@
+[
+  {
+    "id": "e0000000-0000-0000-0000-000000000001",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Main Workshop Hall",
+    "description": "Large room for workshop sessions",
+    "maxCapacity": 50,
+    "type": "workshop"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000002",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 1",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000003",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 2",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000004",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 3",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000005",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 4",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000006",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 5",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000007",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 6",
+    "maxCapacity": 8,
+    "type": "meeting"
+  },
+  {
+    "id": "e0000000-0000-0000-0000-000000000008",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Meeting Room 7",
+    "maxCapacity": 8,
+    "type": "meeting"
+  }
+]

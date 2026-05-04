@@ -13,6 +13,10 @@ import {
 import { relations } from 'drizzle-orm'
 
 // ── Enums ───────────────────────────────────────────────────────────────────
+export const roomTypeValues = ['workshop', 'meeting', 'both'] as const
+export type RoomType = (typeof roomTypeValues)[number]
+export const roomTypeEnum = pgEnum('room_type', roomTypeValues)
+
 export const inviteeRoleValues = ['participant', 'moderator', 'staff'] as const
 export type InviteeRole = (typeof inviteeRoleValues)[number]
 export const inviteeRoleEnum = pgEnum('invitee_role', inviteeRoleValues)
@@ -38,6 +42,7 @@ export const eventsRelations = relations(events, ({ many }) => ({
   invitees: many(invitees),
   userEvents: many(userEvents),
   sessions: many(sessions),
+  rooms: many(rooms),
   sessionStars: many(sessionStars),
 }))
 
@@ -166,4 +171,22 @@ export const sessionStarsRelations = relations(sessionStars, ({ one }) => ({
   user: one(users, { fields: [sessionStars.userId], references: [users.id] }),
   session: one(sessions, { fields: [sessionStars.sessionId], references: [sessions.id] }),
   event: one(events, { fields: [sessionStars.eventId], references: [events.id] }),
+}))
+
+// ── Rooms ─────────────────────────────────────────────────────────────────────
+export const rooms = pgTable('rooms', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  maxCapacity: integer('max_capacity').notNull(),
+  type: roomTypeEnum('type').notNull(),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+})
+
+export const roomsRelations = relations(rooms, ({ one }) => ({
+  event: one(events, { fields: [rooms.eventId], references: [events.id] }),
 }))

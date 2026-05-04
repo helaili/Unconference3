@@ -14,6 +14,7 @@ interface EventItem {
   updatedAt: string
   inviteeCount: number
   sessionCount: number
+  roomCount: number
 }
 
 const headers = [
@@ -22,6 +23,7 @@ const headers = [
   { title: 'Date', key: 'date' },
   { title: 'Participants', key: 'inviteeCount', sortable: true },
   { title: 'Sessions', key: 'sessionCount', sortable: true },
+  { title: 'Rooms', key: 'roomCount', sortable: true },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
 
@@ -192,6 +194,16 @@ async function confirmDelete() {
         >
           <v-icon>mdi-presentation</v-icon>
           <v-tooltip activator="parent" location="top">Manage Sessions</v-tooltip>
+        </v-btn>
+        <v-btn
+          icon
+          size="small"
+          variant="text"
+          color="deep-purple"
+          :to="`/admin/events/${item.id}/rooms`"
+        >
+          <v-icon>mdi-door</v-icon>
+          <v-tooltip activator="parent" location="top">Manage Rooms</v-tooltip>
         </v-btn>
         <v-btn icon size="small" variant="text" color="error" @click="openDelete(item)">
           <v-icon>mdi-delete</v-icon>

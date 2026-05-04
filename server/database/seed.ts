@@ -41,6 +41,8 @@ async function seed() {
 
   await db.insert(schema.sessions).values(loadJson('sessions.json'))
 
+  await db.insert(schema.rooms).values(loadJson('rooms.json'))
+
   logger.success('Seeding complete!')
   await client.end()
 }
