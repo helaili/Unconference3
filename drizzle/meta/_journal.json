@@ -29,6 +29,13 @@
       "when": 1744016570000,
       "tag": "0003_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1746353179000,
+      "tag": "0004_session_stars",
+      "breakpoints": true
     }
   ]
 }

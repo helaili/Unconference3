@@ -1,5 +1,17 @@
 # Copilot Instructions
 
+## Worktree Setup
+
+When starting work in a new worktree, always run these two commands before doing anything else:
+
+```bash
+.copilot/setup.sh
+npm install
+```
+
+This ensures the environment is properly configured and all dependencies are installed locally
+(do not use a symlink to another checkout's `node_modules` -- that causes Vite path issues).
+
 ## API Endpoint Testing Requirements
 
 Every new API endpoint under `server/api/` or `server/routes/api/` **must** ship

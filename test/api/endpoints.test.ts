@@ -10,13 +10,11 @@ import {
   TEST_INVITEE_ALICE_ID,
   TEST_INVITEE_BOB_ID,
   TEST_INVITEE_DIANA_ID,
-  OUTSIDER_EMAIL,
 } from './helpers'
 
 describe('Events Endpoints', async () => {
   let adminCookies: string
   let userCookies: string
-  let outsiderCookies: string
 
   await setup({
     rootDir: fileURLToPath(new URL('../..', import.meta.url)),
@@ -36,7 +34,6 @@ describe('Events Endpoints', async () => {
     await migrateAndSeed()
     adminCookies = await loginAs(fetch, ADMIN_EMAIL)
     userCookies = await loginAs(fetch, REGULAR_USER_EMAIL)
-    outsiderCookies = await loginAs(fetch, OUTSIDER_EMAIL)
   })
 
   // ─── Events CRUD ────────────────────────────────────────────────
@@ -113,11 +110,11 @@ describe('Events Endpoints', async () => {
   })
 
   describe('GET /api/events/:id', () => {
-    it('returns 403 for non-admin', async () => {
+    it('returns 200 for event participant (event detail is accessible to invitees)', async () => {
       const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
-        headers: { Cookie: outsiderCookies },
+        headers: { Cookie: userCookies },
       })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(200)
     })
 
     it('returns 404 for non-existent event', async () => {

@@ -17,6 +17,7 @@ interface SessionItem {
   description: string | null
   tags: string[]
   status: SessionStatus
+  starCount: number
   createdAt: string
   updatedAt: string
 }
@@ -68,6 +69,7 @@ const headers = [
   { title: 'Title', key: 'title' },
   { title: 'Author', key: 'author', sortable: false },
   { title: 'Status', key: 'status' },
+  { title: 'Stars', key: 'starCount', sortable: true },
   { title: 'Tags', key: 'tags', sortable: false },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
@@ -248,6 +250,13 @@ async function confirmDelete() {
         <v-chip :color="statusColors[item.status]" size="small">
           {{ item.status }}
         </v-chip>
+      </template>
+
+      <template #[`item.starCount`]="{ item }">
+        <div class="d-flex align-center ga-1">
+          <v-icon size="small" color="amber-darken-2">mdi-star</v-icon>
+          <span>{{ item.starCount }}</span>
+        </div>
       </template>
 
       <template #[`item.author`]="{ item }">

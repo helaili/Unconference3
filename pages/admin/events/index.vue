@@ -8,6 +8,8 @@ interface EventItem {
   description: string | null
   date: string | null
   submissionRestricted: boolean
+  minStars: number
+  maxStars: number
   createdAt: string
   updatedAt: string
   inviteeCount: number
@@ -37,6 +39,8 @@ const form = ref({
   description: '',
   date: '',
   submissionRestricted: false,
+  minStars: 4,
+  maxStars: 6,
 })
 
 function formatDate(date: string | null): string {
@@ -55,7 +59,7 @@ function truncate(text: string | null, length = 80): string {
 
 function openCreate() {
   editingEvent.value = null
-  form.value = { name: '', description: '', date: '' }
+  form.value = { name: '', description: '', date: '', submissionRestricted: false, minStars: 4, maxStars: 6 }
   actionError.value = ''
   dialog.value = true
 }
@@ -67,6 +71,8 @@ function openEdit(event: EventItem) {
     description: event.description ?? '',
     date: event.date ? new Date(event.date).toISOString().slice(0, 10) : '',
     submissionRestricted: event.submissionRestricted,
+    minStars: event.minStars,
+    maxStars: event.maxStars,
   }
   actionError.value = ''
   dialog.value = true
@@ -93,6 +99,8 @@ async function save() {
       description: form.value.description.trim() || undefined,
       date: form.value.date || undefined,
       submissionRestricted: form.value.submissionRestricted,
+      minStars: form.value.minStars,
+      maxStars: form.value.maxStars,
     }
 
     if (editingEvent.value) {
@@ -224,6 +232,23 @@ async function confirmDelete() {
             color="primary"
             density="compact"
           />
+          <div class="d-flex ga-4 mt-2">
+            <v-text-field
+              v-model.number="form.minStars"
+              label="Minimum stars per participant"
+              type="number"
+              :min="0"
+              :max="form.maxStars"
+              style="flex: 1"
+            />
+            <v-text-field
+              v-model.number="form.maxStars"
+              label="Maximum stars per participant"
+              type="number"
+              :min="1"
+              style="flex: 1"
+            />
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
