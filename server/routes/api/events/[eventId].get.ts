@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Event id is required' })
   }
 
-  await requireAdminOrStaff(event, id)
+  await requireEventAccess(event, id)
 
   const [found] = await useDB()
     .select()
