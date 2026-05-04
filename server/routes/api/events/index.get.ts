@@ -14,5 +14,6 @@ export default defineEventHandler(async (event) => {
     updatedAt: events.updatedAt,
     inviteeCount: sql<number>`(select count(*)::int from invitees where invitees.event_id = events.id)`,
     sessionCount: sql<number>`(select count(*)::int from sessions where sessions.event_id = events.id)`,
+    roomCount: sql<number>`(select count(*)::int from rooms where rooms.event_id = events.id)`,
   }).from(events).orderBy(events.createdAt)
 })
