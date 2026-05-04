@@ -153,6 +153,17 @@ watch(
                 : 'No date set' }}
             </v-card-subtitle>
             <v-card-text v-if="event.description">{{ event.description }}</v-card-text>
+            <v-card-actions>
+              <v-btn
+                size="small"
+                variant="text"
+                color="primary"
+                :to="`/events/${event.id}/sessions`"
+                prepend-icon="mdi-presentation"
+              >
+                View Sessions
+              </v-btn>
+            </v-card-actions>
           </v-card>
         </div>
 

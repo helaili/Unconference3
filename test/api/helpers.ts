@@ -21,6 +21,7 @@ export async function migrateAndSeed() {
   // Drop all tables and custom types so migrations are idempotent across test files
   await client.unsafe(`
     DROP TABLE IF EXISTS rooms CASCADE;
+    DROP TABLE IF EXISTS session_stars CASCADE;
     DROP TABLE IF EXISTS sessions CASCADE;
     DROP TABLE IF EXISTS user_events CASCADE;
     DROP TABLE IF EXISTS invitations CASCADE;
@@ -78,6 +79,7 @@ export async function migrateAndSeed() {
   )
 
   await db.insert(schema.rooms).values(loadJson('rooms.json'))
+  await db.insert(schema.sessionStars).values(loadJson('session-stars.json'))
 
   await client.end()
 }
@@ -110,6 +112,14 @@ export const TEST_SESSION_STAFF_PUBLISHED_ID = 'd0000000-0000-0000-0000-00000000
 // Room fixture IDs
 export const TEST_ROOM_WORKSHOP_ID = 'e0000000-0000-0000-0000-000000000001'
 export const TEST_ROOM_MEETING_1_ID = 'e0000000-0000-0000-0000-000000000002'
+
+// Star-related fixture IDs (sessions Diana has starred in seed data)
+export const TEST_SESSION_STARRED_BY_DIANA_1 = 'd0000000-0000-0000-0000-000000000002'
+export const TEST_SESSION_STARRED_BY_DIANA_2 = 'd0000000-0000-0000-0000-000000000003'
+export const TEST_SESSION_STARRED_BY_DIANA_3 = 'd0000000-0000-0000-0000-000000000007'
+export const TEST_SESSION_STARRED_BY_DIANA_4 = 'd0000000-0000-0000-0000-000000000008'
+// Unstarred published session Diana can star as her 5th star
+export const TEST_SESSION_UNSTARRED_PUBLISHED_ID = 'd0000000-0000-0000-0000-000000000006'
 
 // Additional user emails for test logins
 export const STAFF_USER_EMAIL = 'liam.obrien@example.com'

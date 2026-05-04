@@ -10,6 +10,8 @@ export default defineEventHandler(async (event) => {
     description: events.description,
     date: events.date,
     submissionRestricted: events.submissionRestricted,
+    minStars: events.minStars,
+    maxStars: events.maxStars,
     createdAt: events.createdAt,
     updatedAt: events.updatedAt,
     inviteeCount: sql<number>`(select count(*)::int from invitees where invitees.event_id = events.id)`,

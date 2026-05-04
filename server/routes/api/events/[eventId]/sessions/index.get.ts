@@ -1,12 +1,14 @@
-import { eq, and, inArray } from 'drizzle-orm'
-import { sessions, users } from '~/server/database/schema'
+import { eq, and, inArray, sql } from 'drizzle-orm'
+import { sessions, users, sessionStars } from '~/server/database/schema'
 import type { SessionStatus } from '~/server/database/schema'
 
-// Shape returned for each session (raw row + flattened author fields)
+// Shape returned for each session (raw row + flattened author fields + star data)
 type SessionRow = typeof sessions.$inferSelect & {
   authorFirstName: string | null
   authorLastName: string | null
   authorEmail: string | null
+  starCount: number
+  isStarred?: boolean
 }
 
 async function fetchSessions(
@@ -27,6 +29,7 @@ async function fetchSessions(
       status: sessions.status,
       createdAt: sessions.createdAt,
       updatedAt: sessions.updatedAt,
+      starCount: sql<number>`(select count(*)::int from session_stars where session_stars.session_id = ${sessions.id})`,
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.authorId, users.id))
@@ -93,6 +96,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Resolve the DB user for star data (isStarred, starred filter)
+  let dbUserId: string | null = null
+  if (user?.email) {
+    const [dbUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, user.email.toLowerCase()))
+      .limit(1)
+    dbUserId = dbUser?.id ?? null
+  }
+
   const rows: SessionRow[] = []
 
   if (!skipMainQuery) {
@@ -106,30 +120,47 @@ export default defineEventHandler(async (event) => {
 
   // Always append the current user's own proposed sessions (they are never exposed
   // via the main query, so this is the only path through which they are visible).
-  if (!isPrivileged && user?.email) {
+  if (!isPrivileged && dbUserId) {
     const userWantsProposed = !requestedStatuses || requestedStatuses.includes('proposed')
     if (userWantsProposed) {
-      const [dbUser] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, user.email.toLowerCase()))
-        .limit(1)
+      const ownProposed = await fetchSessions(db, [
+        eq(sessions.eventId, eventId),
+        eq(sessions.authorId, dbUserId),
+        eq(sessions.status, 'proposed'),
+      ])
 
-      if (dbUser) {
-        const ownProposed = await fetchSessions(db, [
-          eq(sessions.eventId, eventId),
-          eq(sessions.authorId, dbUser.id),
-          eq(sessions.status, 'proposed'),
-        ])
-
-        const existingIds = new Set(rows.map(r => r.id))
-        for (const s of ownProposed) {
-          if (!existingIds.has(s.id)) rows.push(s)
-        }
+      const existingIds = new Set(rows.map(r => r.id))
+      for (const s of ownProposed) {
+        if (!existingIds.has(s.id)) rows.push(s)
       }
     }
   }
 
-  logger.debug(`Listed ${rows.length} sessions for event ${eventId}`)
-  return rows
+  // Attach isStarred for each row using the current user's stars
+  if (dbUserId) {
+    const userStars = await db
+      .select({ sessionId: sessionStars.sessionId })
+      .from(sessionStars)
+      .where(and(eq(sessionStars.userId, dbUserId), eq(sessionStars.eventId, eventId)))
+
+    const starredIds = new Set(userStars.map(s => s.sessionId))
+    for (const row of rows) {
+      row.isStarred = starredIds.has(row.id)
+    }
+  }
+
+  // ?starred=true — filter to only starred sessions (participants only; ignored for privileged users)
+  let result = rows
+  if (!isPrivileged && query.starred === 'true') {
+    result = rows.filter(r => r.isStarred)
+  }
+
+  // ?sortBy=stars — sort by star count descending (admin/staff only)
+  if (isPrivileged && query.sortBy === 'stars') {
+    result = [...result].sort((a, b) => b.starCount - a.starCount)
+  }
+
+  logger.debug(`Listed ${result.length} sessions for event ${eventId}`)
+  return result
 })
+
