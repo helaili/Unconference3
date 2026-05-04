@@ -1,4 +1,5 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
@@ -20,6 +21,8 @@ const db = drizzle(client, { schema })
 
 async function seed() {
   logger.info('Seeding database...')
+
+  await migrate(db, { migrationsFolder: resolve(__dirname, '../../drizzle') })
 
   await db.insert(schema.events).values(
     loadJson('events.json').map((e: Record<string, unknown>) => ({ ...e, date: new Date(e.date as string) })),
