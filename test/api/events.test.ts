@@ -301,7 +301,7 @@ describe('Events Endpoints', async () => {
         role: string
         invitations: unknown[]
       }>
-      expect(invitees.length).toBe(33)
+      expect(invitees.length).toBe(35)
 
       // Verify sorting by lastName
       for (let i = 1; i < invitees.length; i++) {

@@ -35,6 +35,17 @@ const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
+const pendingInvitation = ref(false)
+
+onMounted(async () => {
+  try {
+    const info = await $fetch<{ email: string }>('/api/auth/invitation-info')
+    email.value = info.email
+    pendingInvitation.value = true
+  } catch {
+    // No pending invitation, normal login
+  }
+})
 
 const login = async () => {
   error.value = ''
@@ -62,6 +73,10 @@ const login = async () => {
   <div class="d-flex flex-column align-center justify-center" style="min-height: 60vh;">
     <v-card max-width="440" width="100%" class="pa-6">
       <v-card-title class="text-h5 text-center mb-4">Sign In</v-card-title>
+
+      <v-alert v-if="pendingInvitation" type="info" variant="tonal" class="mb-4">
+        Please sign in to finish accepting the invitation.
+      </v-alert>
 
       <v-alert v-if="error" type="error" variant="tonal" class="mb-4" closable @click:close="error = ''">
         {{ error }}

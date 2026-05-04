@@ -1,5 +1,5 @@
-import { invitations, invitees } from '~/server/database/schema'
-import { eq, and, isNull, gt } from 'drizzle-orm'
+import { invitations, invitees, users } from '~/server/database/schema'
+import { eq, and, isNull, gt, isNotNull } from 'drizzle-orm'
 
 const logger = useLogger('invitations')
 
@@ -35,7 +35,20 @@ export default defineEventHandler(async (event) => {
   })
 
   logger.info(`Invitation token validated for invitee ${invitation.invitees.email}`)
-  return sendRedirect(event, useRuntimeConfig().authMode === 'local' ? '/register' : '/auth/github')
+
+  if (useRuntimeConfig().authMode !== 'local') {
+    return sendRedirect(event, '/auth/github')
+  }
+
+  // Check if the invitee already has a usable local account → send to login
+  const [existingUser] = await db.select({ id: users.id })
+    .from(users)
+    .where(and(
+      eq(users.email, invitation.invitees.email.toLowerCase()),
+      isNotNull(users.passwordHash),
+    ))
+
+  return sendRedirect(event, existingUser ? '/login' : '/register')
 })
 
 function sendInvalidInvitationPage(event: Parameters<typeof send>[0]) {

@@ -48,10 +48,10 @@ export default defineEventHandler(async (event) => {
 
   const inviteeRecord = invitation.invitees
 
-  // Check if email is already registered
+  // Check if email is already registered (use invitee email from DB, not client input)
   const [existingUser] = await db.select()
     .from(users)
-    .where(eq(users.email, body.email.trim().toLowerCase()))
+    .where(eq(users.email, inviteeRecord.email.toLowerCase()))
 
   if (existingUser) {
     logger.warn(`Registration attempt with existing email: ${body.email}`)
@@ -60,27 +60,33 @@ export default defineEventHandler(async (event) => {
 
   const passwordHash = await hashPassword(body.password)
 
-  const [dbUser] = await db.insert(users).values({
-    firstName: body.firstName.trim(),
-    lastName: body.lastName.trim(),
-    email: body.email.trim().toLowerCase(),
-    passwordHash,
-  }).returning()
+  const dbUser = await db.transaction(async (tx) => {
+    const [newUser] = await tx.insert(users).values({
+      firstName: body.firstName.trim(),
+      lastName: body.lastName.trim(),
+      email: inviteeRecord.email.toLowerCase(),
+      passwordHash,
+    }).returning()
+
+    if (!newUser) {
+      throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
+    }
+
+    await tx.insert(userEvents).values({
+      userId: newUser.id,
+      eventId: inviteeRecord.eventId,
+    }).onConflictDoNothing()
+
+    await tx.update(invitations)
+      .set({ usedAt: new Date() })
+      .where(eq(invitations.id, invitation.invitations.id))
+
+    return newUser
+  })
 
   if (!dbUser) {
     throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
   }
-
-  // Link user to the event
-  await db.insert(userEvents).values({
-    userId: dbUser.id,
-    eventId: inviteeRecord.eventId,
-  }).onConflictDoNothing()
-
-  // Mark invitation as used
-  await db.update(invitations)
-    .set({ usedAt: new Date() })
-    .where(eq(invitations.id, invitation.invitations.id))
 
   deleteCookie(event, 'invitation-token', { path: '/' })
 

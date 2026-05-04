@@ -1,5 +1,5 @@
-import { users } from '~/server/database/schema'
-import { eq } from 'drizzle-orm'
+import { users, invitations, invitees, userEvents } from '~/server/database/schema'
+import { eq, and, isNull, gt } from 'drizzle-orm'
 
 const logger = useLogger('auth')
 
@@ -47,5 +47,38 @@ export default defineEventHandler(async (event) => {
   })
 
   logger.info(`User logged in: ${dbUser.email}`)
+
+  // Accept a pending invitation if one exists for this user's email
+  const invitationToken = getCookie(event, 'invitation-token')
+  if (invitationToken) {
+    const [invitation] = await db.select()
+      .from(invitations)
+      .innerJoin(invitees, eq(invitations.inviteeId, invitees.id))
+      .where(and(
+        eq(invitations.token, invitationToken),
+        isNull(invitations.usedAt),
+        gt(invitations.expiresAt, new Date()),
+        eq(invitees.email, dbUser.email!.toLowerCase()),
+      ))
+
+    if (invitation) {
+      await db.transaction(async (tx) => {
+        await tx.insert(userEvents).values({
+          userId: dbUser.id,
+          eventId: invitation.invitees.eventId,
+        }).onConflictDoNothing()
+
+        await tx.update(invitations)
+          .set({ usedAt: new Date() })
+          .where(eq(invitations.id, invitation.invitations.id))
+      })
+      logger.info(`Invitation accepted on login for ${dbUser.email}`)
+    } else {
+      logger.warn(`Invitation token present on login but did not match user ${dbUser.email}`)
+    }
+
+    deleteCookie(event, 'invitation-token', { path: '/' })
+  }
+
   return { ok: true }
 })
