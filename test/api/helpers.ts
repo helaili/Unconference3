@@ -20,12 +20,14 @@ export async function migrateAndSeed() {
 
   // Drop all tables and custom types so migrations are idempotent across test files
   await client.unsafe(`
+    DROP TABLE IF EXISTS rooms CASCADE;
     DROP TABLE IF EXISTS sessions CASCADE;
     DROP TABLE IF EXISTS user_events CASCADE;
     DROP TABLE IF EXISTS invitations CASCADE;
     DROP TABLE IF EXISTS invitees CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
+    DROP TYPE IF EXISTS room_type;
     DROP TYPE IF EXISTS session_status;
     DROP TYPE IF EXISTS invitee_role;
   `)
@@ -75,6 +77,8 @@ export async function migrateAndSeed() {
     })),
   )
 
+  await db.insert(schema.rooms).values(loadJson('rooms.json'))
+
   await client.end()
 }
 
@@ -102,6 +106,10 @@ export const TEST_SESSION_SCHEDULED_ID = 'd0000000-0000-0000-0000-000000000003'
 export const TEST_SESSION_DELIVERED_ID = 'd0000000-0000-0000-0000-000000000004'
 export const TEST_SESSION_PROPOSED_BY_NOAH_ID = 'd0000000-0000-0000-0000-000000000005'
 export const TEST_SESSION_STAFF_PUBLISHED_ID = 'd0000000-0000-0000-0000-000000000006'
+
+// Room fixture IDs
+export const TEST_ROOM_WORKSHOP_ID = 'e0000000-0000-0000-0000-000000000001'
+export const TEST_ROOM_MEETING_1_ID = 'e0000000-0000-0000-0000-000000000002'
 
 // Additional user emails for test logins
 export const STAFF_USER_EMAIL = 'liam.obrien@example.com'
