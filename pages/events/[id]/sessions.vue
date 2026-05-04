@@ -183,29 +183,8 @@ function authorName(session: SessionItem): string {
           lg="4"
         >
           <v-card variant="outlined" height="100%">
-            <v-card-title class="text-body-1 font-weight-bold pb-1 d-flex align-start justify-space-between">
-              <span>{{ session.title }}</span>
-              <v-btn
-                v-if="session.status === 'published' || session.status === 'scheduled'"
-                :icon="session.isStarred ? 'mdi-star' : 'mdi-star-outline'"
-                :color="session.isStarred ? 'amber-darken-2' : undefined"
-                :disabled="starringId === session.id || (!session.isStarred && starsRemaining <= 0)"
-                :loading="starringId === session.id"
-                size="small"
-                variant="text"
-                @click="toggleStar(session)"
-              >
-                <v-tooltip
-                  activator="parent"
-                  location="top"
-                >
-                  {{ session.isStarred
-                    ? 'Remove star'
-                    : starsRemaining <= 0
-                      ? `Maximum stars reached (${maxStars})`
-                      : 'Star this session' }}
-                </v-tooltip>
-              </v-btn>
+            <v-card-title class="text-body-1 font-weight-bold pb-1">
+              {{ session.title }}
             </v-card-title>
 
             <v-card-subtitle class="pb-1">
@@ -234,6 +213,20 @@ function authorName(session: SessionItem): string {
                 >{{ tag }}</v-chip>
               </div>
             </v-card-text>
+
+            <v-card-actions v-if="session.status === 'published' || session.status === 'scheduled'">
+              <v-btn
+                :color="session.isStarred ? 'amber-darken-2' : 'default'"
+                :variant="session.isStarred ? 'tonal' : 'outlined'"
+                :prepend-icon="session.isStarred ? 'mdi-star' : 'mdi-star-outline'"
+                :disabled="starringId === session.id || (!session.isStarred && starsRemaining <= 0)"
+                :loading="starringId === session.id"
+                size="small"
+                @click="toggleStar(session)"
+              >
+                {{ session.isStarred ? 'Remove star' : starsRemaining <= 0 ? `Max stars reached (${maxStars})` : 'Star this session' }}
+              </v-btn>
+            </v-card-actions>
           </v-card>
         </v-col>
       </v-row>
