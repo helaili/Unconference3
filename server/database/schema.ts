@@ -28,6 +28,8 @@ export const events = pgTable('events', {
   description: text('description'),
   date: timestamp('date', { mode: 'date' }),
   submissionRestricted: boolean('submission_restricted').notNull().default(false),
+  minStars: integer('min_stars').notNull().default(4),
+  maxStars: integer('max_stars').notNull().default(6),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })
@@ -36,6 +38,7 @@ export const eventsRelations = relations(events, ({ many }) => ({
   invitees: many(invitees),
   userEvents: many(userEvents),
   sessions: many(sessions),
+  sessionStars: many(sessionStars),
 }))
 
 // ── Invitees ────────────────────────────────────────────────────────────────
@@ -96,6 +99,7 @@ export const users = pgTable('users', {
 export const usersRelations = relations(users, ({ many }) => ({
   userEvents: many(userEvents),
   sessions: many(sessions),
+  sessionStars: many(sessionStars),
 }))
 
 // ── User Events (join table) ────────────────────────────────────────────────
@@ -134,7 +138,32 @@ export const sessions = pgTable('sessions', {
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })
 
-export const sessionsRelations = relations(sessions, ({ one }) => ({
+export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   event: one(events, { fields: [sessions.eventId], references: [events.id] }),
   author: one(users, { fields: [sessions.authorId], references: [users.id] }),
+  stars: many(sessionStars),
+}))
+
+// ── Session Stars ─────────────────────────────────────────────────────────────
+export const sessionStars = pgTable(
+  'session_stars',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    eventId: uuid('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.sessionId] })],
+)
+
+export const sessionStarsRelations = relations(sessionStars, ({ one }) => ({
+  user: one(users, { fields: [sessionStars.userId], references: [users.id] }),
+  session: one(sessions, { fields: [sessionStars.sessionId], references: [sessions.id] }),
+  event: one(events, { fields: [sessionStars.eventId], references: [events.id] }),
 }))

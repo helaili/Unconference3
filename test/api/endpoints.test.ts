@@ -110,11 +110,11 @@ describe('Events Endpoints', async () => {
   })
 
   describe('GET /api/events/:id', () => {
-    it('returns 403 for non-admin', async () => {
+    it('returns 200 for event participant (event detail is accessible to invitees)', async () => {
       const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
         headers: { Cookie: userCookies },
       })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(200)
     })
 
     it('returns 404 for non-existent event', async () => {
