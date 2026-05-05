@@ -10,6 +10,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v invitations="$(cat /testdata/invitations.json)" \
   -v user_events="$(cat /testdata/user-events.json)" \
   -v sessions="$(cat /testdata/sessions.json)" \
+  -v rooms="$(cat /testdata/rooms.json)" \
   <<'EOSQL'
 
 INSERT INTO events (id, name, description, date)
@@ -43,6 +44,11 @@ SELECT id, "eventId", "authorId", title, description,
   status::session_status
 FROM json_to_recordset(:'sessions'::json)
   AS x(id uuid, "eventId" uuid, "authorId" uuid, title varchar, description text, tags text, status varchar);
+
+INSERT INTO rooms (id, event_id, name, description, max_capacity, type)
+SELECT id, "eventId", name, description, "maxCapacity", type::room_type
+FROM json_to_recordset(:'rooms'::json)
+  AS x(id uuid, "eventId" uuid, name varchar, description text, "maxCapacity" integer, type varchar);
 
 EOSQL
 
