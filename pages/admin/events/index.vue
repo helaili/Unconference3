@@ -10,6 +10,8 @@ interface EventItem {
   submissionRestricted: boolean
   minStars: number
   maxStars: number
+  defaultDiscussionDuration: number
+  defaultWorkshopDuration: number
   createdAt: string
   updatedAt: string
   inviteeCount: number
@@ -43,6 +45,8 @@ const form = ref({
   submissionRestricted: false,
   minStars: 4,
   maxStars: 6,
+  defaultDiscussionDuration: 30,
+  defaultWorkshopDuration: 75,
 })
 
 function formatDate(date: string | null): string {
@@ -61,7 +65,7 @@ function truncate(text: string | null, length = 80): string {
 
 function openCreate() {
   editingEvent.value = null
-  form.value = { name: '', description: '', date: '', submissionRestricted: false, minStars: 4, maxStars: 6 }
+  form.value = { name: '', description: '', date: '', submissionRestricted: false, minStars: 4, maxStars: 6, defaultDiscussionDuration: 30, defaultWorkshopDuration: 75 }
   actionError.value = ''
   dialog.value = true
 }
@@ -75,6 +79,8 @@ function openEdit(event: EventItem) {
     submissionRestricted: event.submissionRestricted,
     minStars: event.minStars,
     maxStars: event.maxStars,
+    defaultDiscussionDuration: event.defaultDiscussionDuration,
+    defaultWorkshopDuration: event.defaultWorkshopDuration,
   }
   actionError.value = ''
   dialog.value = true
@@ -103,6 +109,8 @@ async function save() {
       submissionRestricted: form.value.submissionRestricted,
       minStars: form.value.minStars,
       maxStars: form.value.maxStars,
+      defaultDiscussionDuration: form.value.defaultDiscussionDuration,
+      defaultWorkshopDuration: form.value.defaultWorkshopDuration,
     }
 
     if (editingEvent.value) {
@@ -256,6 +264,22 @@ async function confirmDelete() {
             <v-text-field
               v-model.number="form.maxStars"
               label="Maximum stars per participant"
+              type="number"
+              :min="1"
+              style="flex: 1"
+            />
+          </div>
+          <div class="d-flex ga-4 mt-2">
+            <v-text-field
+              v-model.number="form.defaultDiscussionDuration"
+              label="Default discussion duration (min)"
+              type="number"
+              :min="1"
+              style="flex: 1"
+            />
+            <v-text-field
+              v-model.number="form.defaultWorkshopDuration"
+              label="Default workshop duration (min)"
               type="number"
               :min="1"
               style="flex: 1"

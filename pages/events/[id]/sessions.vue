@@ -5,6 +5,7 @@ const route = useRoute()
 const eventId = route.params.id as string
 
 type SessionStatus = 'proposed' | 'published' | 'scheduled' | 'delivered'
+type SessionType = 'discussion' | 'workshop'
 
 interface SessionItem {
   id: string
@@ -17,6 +18,8 @@ interface SessionItem {
   description: string | null
   tags: string[]
   status: SessionStatus
+  type: SessionType
+  duration: number | null
   starCount: number
   isStarred: boolean
   createdAt: string
@@ -28,6 +31,8 @@ interface EventInfo {
   name: string
   minStars: number
   maxStars: number
+  defaultDiscussionDuration: number
+  defaultWorkshopDuration: number
 }
 
 const statusColors: Record<SessionStatus, string> = {
@@ -91,6 +96,15 @@ async function toggleStar(session: SessionItem) {
 function authorName(session: SessionItem): string {
   const parts = [session.authorFirstName, session.authorLastName].filter(Boolean)
   return parts.length ? parts.join(' ') : (session.authorEmail ?? 'Unknown')
+}
+
+function effectiveDuration(session: SessionItem): string {
+  if (session.duration !== null) return `${session.duration} min`
+  if (!eventInfo.value) return '—'
+  const def = session.type === 'workshop'
+    ? eventInfo.value.defaultWorkshopDuration
+    : eventInfo.value.defaultDiscussionDuration
+  return `${def} min`
 }
 </script>
 
@@ -196,6 +210,17 @@ function authorName(session: SessionItem): string {
                 <v-chip :color="statusColors[session.status]" size="x-small">
                   {{ session.status }}
                 </v-chip>
+                <v-chip
+                  :color="session.type === 'workshop' ? 'orange' : 'blue'"
+                  size="x-small"
+                  variant="tonal"
+                >
+                  {{ session.type }}
+                </v-chip>
+                <span class="d-flex align-center ga-1 text-caption text-grey">
+                  <v-icon size="x-small">mdi-clock-outline</v-icon>
+                  {{ effectiveDuration(session) }}
+                </span>
                 <span class="d-flex align-center ga-1 text-caption text-grey">
                   <v-icon size="x-small" color="amber-darken-2">mdi-star</v-icon>
                   {{ session.starCount }}
