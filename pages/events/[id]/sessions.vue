@@ -56,11 +56,13 @@ const { data: sessions, status: fetchStatus, refresh } = useAsyncData(
 
 // ── Starred filter ──────────────────────────────────────────────────────────
 const showStarredOnly = ref(false)
+const typeFilter = ref<'discussion' | 'workshop' | null>(null)
 
 const filteredSessions = computed(() => {
-  if (!sessions.value) return []
-  if (showStarredOnly.value) return sessions.value.filter(s => s.isStarred)
-  return sessions.value
+  let result = sessions.value ?? []
+  if (showStarredOnly.value) result = result.filter(s => s.isStarred)
+  if (typeFilter.value) result = result.filter(s => s.type === typeFilter.value)
+  return result
 })
 
 // ── Star budget ─────────────────────────────────────────────────────────────
@@ -137,8 +139,8 @@ function effectiveDuration(session: SessionItem): string {
       </div>
     </div>
 
-    <!-- Starred-only toggle -->
-    <div class="d-flex align-center ga-3 mb-4">
+    <!-- Filters -->
+    <div class="d-flex flex-wrap align-center ga-2 mb-4">
       <v-btn
         :color="showStarredOnly ? 'amber-darken-2' : undefined"
         :variant="showStarredOnly ? 'flat' : 'outlined'"
@@ -148,15 +150,38 @@ function effectiveDuration(session: SessionItem): string {
       >
         Starred only
       </v-btn>
-      <v-btn
-        v-if="showStarredOnly"
+
+      <v-divider vertical class="mx-1" style="height:24px" />
+
+      <v-chip
+        :variant="typeFilter === null ? 'flat' : 'outlined'"
+        :color="typeFilter === null ? 'primary' : undefined"
         size="small"
-        variant="text"
-        color="grey"
-        @click="showStarredOnly = false"
+        clickable
+        @click="typeFilter = null"
       >
-        Show all
-      </v-btn>
+        All types
+      </v-chip>
+      <v-chip
+        :variant="typeFilter === 'discussion' ? 'flat' : 'outlined'"
+        :color="typeFilter === 'discussion' ? 'teal' : undefined"
+        size="small"
+        clickable
+        @click="typeFilter = typeFilter === 'discussion' ? null : 'discussion'"
+      >
+        <v-icon start size="x-small">mdi-forum-outline</v-icon>
+        Discussion
+      </v-chip>
+      <v-chip
+        :variant="typeFilter === 'workshop' ? 'flat' : 'outlined'"
+        :color="typeFilter === 'workshop' ? 'orange' : undefined"
+        size="small"
+        clickable
+        @click="typeFilter = typeFilter === 'workshop' ? null : 'workshop'"
+      >
+        <v-icon start size="x-small">mdi-tools</v-icon>
+        Workshop
+      </v-chip>
     </div>
 
     <v-alert
@@ -185,7 +210,10 @@ function effectiveDuration(session: SessionItem): string {
         type="info"
         variant="tonal"
       >
-        {{ showStarredOnly ? 'You have not starred any sessions yet.' : 'No sessions available.' }}
+        <span v-if="showStarredOnly && typeFilter">No starred {{ typeFilter }} sessions.</span>
+        <span v-else-if="showStarredOnly">You have not starred any sessions yet.</span>
+        <span v-else-if="typeFilter">No {{ typeFilter }} sessions available.</span>
+        <span v-else>No sessions available.</span>
       </v-alert>
 
       <v-row v-else>

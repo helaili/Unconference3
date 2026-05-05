@@ -35,6 +35,7 @@ const eventId = route.params.id as string
 
 const { user } = useUserSession()
 const includeDelivered = ref(false)
+const typeFilter = ref<SessionType | null>(null)
 
 const { data: eventDetail, status: eventStatus, error: eventError } = useFetch<EventDetail>(
   `/api/events/${eventId}`,
@@ -50,6 +51,12 @@ const {
 })
 
 useHead(computed(() => ({ title: eventDetail.value?.name ?? 'Event' })))
+
+const filteredSessions = computed(() => {
+  if (!sessions.value) return []
+  if (!typeFilter.value) return sessions.value
+  return sessions.value.filter(s => s.type === typeFilter.value)
+})
 
 // ── Propose session dialog ────────────────────────────────────────────────────
 const proposeOpen = ref(false)
@@ -222,7 +229,7 @@ function effectiveDuration(session: SessionRow): string {
       </div>
 
       <!-- Filter bar -->
-      <div class="d-flex align-center mb-5">
+      <div class="d-flex align-center flex-wrap ga-3 mb-5">
         <v-switch
           v-model="includeDelivered"
           label="Show delivered sessions"
@@ -230,6 +237,36 @@ function effectiveDuration(session: SessionRow): string {
           density="compact"
           color="primary"
         />
+        <v-divider vertical class="mx-1" style="height:24px" />
+        <v-chip
+          :variant="typeFilter === null ? 'flat' : 'outlined'"
+          :color="typeFilter === null ? 'primary' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = null"
+        >
+          All types
+        </v-chip>
+        <v-chip
+          :variant="typeFilter === 'discussion' ? 'flat' : 'outlined'"
+          :color="typeFilter === 'discussion' ? 'teal' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = typeFilter === 'discussion' ? null : 'discussion'"
+        >
+          <v-icon start size="x-small">mdi-forum-outline</v-icon>
+          Discussion
+        </v-chip>
+        <v-chip
+          :variant="typeFilter === 'workshop' ? 'flat' : 'outlined'"
+          :color="typeFilter === 'workshop' ? 'orange' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = typeFilter === 'workshop' ? null : 'workshop'"
+        >
+          <v-icon start size="x-small">mdi-tools</v-icon>
+          Workshop
+        </v-chip>
       </div>
 
       <!-- Sessions loading -->
@@ -239,7 +276,7 @@ function effectiveDuration(session: SessionRow): string {
       <template v-else-if="sessions && sessions.length > 0">
         <v-row>
           <v-col
-            v-for="session in sessions"
+            v-for="session in filteredSessions"
             :key="session.id"
             cols="12"
             sm="6"
@@ -320,7 +357,8 @@ function effectiveDuration(session: SessionRow): string {
       </template>
 
       <v-alert v-else type="info" variant="tonal" max-width="600">
-        No sessions yet.
+        <span v-if="typeFilter">No <strong>{{ typeFilter }}</strong> sessions found.</span>
+        <span v-else>No sessions yet.</span>
         <template v-if="!includeDelivered">
           <v-btn variant="text" size="small" @click="includeDelivered = true">Show delivered sessions</v-btn>
         </template>
