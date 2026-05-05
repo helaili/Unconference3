@@ -139,22 +139,22 @@ export async function requireSessionSubmission(
  * role is "participant":
  *   – cannot edit once the session status is no longer "proposed"
  *   – cannot change the status field
- * Returns an object with `canEdit` and `canChangeStatus`.
+ * Returns an object with `canEdit`, `canChangeStatus`, `isAdmin`, and `isStaffOrAdmin`.
  */
 export async function getSessionEditPermissions(
   event: H3Event,
   eventId: string,
   sessionRecord: { authorId: string; status: string },
-): Promise<{ canEdit: boolean; canChangeStatus: boolean }> {
+): Promise<{ canEdit: boolean; canChangeStatus: boolean; isAdmin: boolean; isStaffOrAdmin: boolean }> {
   const session = await getUserSession(event)
   const user = session?.user
-  if (!user) return { canEdit: false, canChangeStatus: false }
+  if (!user) return { canEdit: false, canChangeStatus: false, isAdmin: false, isStaffOrAdmin: false }
 
-  const isAdminUser = (user.login && isAdmin(user.login)) || (user.email && isAdminEmail(user.email))
-  if (isAdminUser) return { canEdit: true, canChangeStatus: true }
+  const isAdminUser = !!(user.login && isAdmin(user.login)) || !!(user.email && isAdminEmail(user.email))
+  if (isAdminUser) return { canEdit: true, canChangeStatus: true, isAdmin: true, isStaffOrAdmin: true }
 
   const isStaff = await isStaffForEvent(event, eventId)
-  if (isStaff) return { canEdit: true, canChangeStatus: true }
+  if (isStaff) return { canEdit: true, canChangeStatus: true, isAdmin: false, isStaffOrAdmin: true }
 
   // Look up the current user's DB record to compare with the session's authorId
   const db = useDB()
@@ -165,21 +165,21 @@ export async function getSessionEditPermissions(
     .limit(1)
 
   if (!dbUser || dbUser.id !== sessionRecord.authorId) {
-    return { canEdit: false, canChangeStatus: false }
+    return { canEdit: false, canChangeStatus: false, isAdmin: false, isStaffOrAdmin: false }
   }
 
   // User is the author — check their invitee role for this event
   const role = await getInviteeRoleForEvent(event, eventId)
   if (role === null) {
     // Author is no longer a member of this event — deny editing
-    return { canEdit: false, canChangeStatus: false }
+    return { canEdit: false, canChangeStatus: false, isAdmin: false, isStaffOrAdmin: false }
   }
   if (role === 'participant') {
     const canEdit = sessionRecord.status === 'proposed'
-    return { canEdit, canChangeStatus: false }
+    return { canEdit, canChangeStatus: false, isAdmin: false, isStaffOrAdmin: false }
   }
 
-  // Author with moderator or staff invitee role can fully edit
-  return { canEdit: true, canChangeStatus: true }
+  // Author with moderator invitee role can edit but is not staff/admin
+  return { canEdit: true, canChangeStatus: true, isAdmin: false, isStaffOrAdmin: false }
 }
 

@@ -51,7 +51,8 @@
     "title": "Staff Session: Workshop Design",
     "description": "Published session authored by staff member Liam.",
     "tags": ["workshop"],
-    "status": "published"
+    "status": "published",
+    "type": "workshop"
   },
   {
     "id": "d0000000-0000-0000-0000-000000000007",

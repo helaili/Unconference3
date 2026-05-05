@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
 import { events, sessions, users } from '~/server/database/schema'
-import type { SessionStatus } from '~/server/database/schema'
+import type { SessionStatus, SessionType } from '~/server/database/schema'
 
 const logger = useLogger('sessions')
 
@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     description?: string
     tags?: string[]
     status?: SessionStatus
+    type?: SessionType
   }>(event)
 
   if (!body.title?.trim()) {
@@ -37,6 +38,10 @@ export default defineEventHandler(async (event) => {
 
   if (body.status && !['proposed', 'published', 'scheduled', 'delivered'].includes(body.status)) {
     throw createError({ statusCode: 400, statusMessage: 'Invalid status value' })
+  }
+
+  if (body.type !== undefined && !['discussion', 'workshop'].includes(body.type)) {
+    throw createError({ statusCode: 400, statusMessage: 'type must be "discussion" or "workshop"' })
   }
 
   // Determine author's user ID
@@ -65,6 +70,12 @@ export default defineEventHandler(async (event) => {
     initialStatus = body.status
   }
 
+  // Only staff and admins can create workshop sessions
+  const sessionType: SessionType = body.type ?? 'discussion'
+  if (sessionType === 'workshop' && !isAdminUser && !isStaff) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden: only admins and staff can create workshop sessions' })
+  }
+
   const [created] = await db
     .insert(sessions)
     .values({
@@ -74,6 +85,7 @@ export default defineEventHandler(async (event) => {
       description: body.description,
       tags: body.tags ?? [],
       status: initialStatus,
+      type: sessionType,
     })
     .returning()
 

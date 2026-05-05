@@ -25,6 +25,10 @@ export const sessionStatusValues = ['proposed', 'published', 'scheduled', 'deliv
 export type SessionStatus = (typeof sessionStatusValues)[number]
 export const sessionStatusEnum = pgEnum('session_status', sessionStatusValues)
 
+export const sessionTypeValues = ['discussion', 'workshop'] as const
+export type SessionType = (typeof sessionTypeValues)[number]
+export const sessionTypeEnum = pgEnum('session_type', sessionTypeValues)
+
 // ── Events ──────────────────────────────────────────────────────────────────
 export const events = pgTable('events', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -34,6 +38,8 @@ export const events = pgTable('events', {
   submissionRestricted: boolean('submission_restricted').notNull().default(false),
   minStars: integer('min_stars').notNull().default(4),
   maxStars: integer('max_stars').notNull().default(6),
+  defaultDiscussionDuration: integer('default_discussion_duration').notNull().default(30),
+  defaultWorkshopDuration: integer('default_workshop_duration').notNull().default(75),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })
@@ -139,6 +145,8 @@ export const sessions = pgTable('sessions', {
   description: text('description'),
   tags: text('tags').array().notNull().default([]),
   status: sessionStatusEnum('status').notNull().default('proposed'),
+  type: sessionTypeEnum('type').notNull().default('discussion'),
+  duration: integer('duration'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })

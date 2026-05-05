@@ -27,6 +27,8 @@ async function fetchSessions(
       description: sessions.description,
       tags: sessions.tags,
       status: sessions.status,
+      type: sessions.type,
+      duration: sessions.duration,
       createdAt: sessions.createdAt,
       updatedAt: sessions.updatedAt,
       starCount: sql<number>`(select count(*)::int from session_stars where session_stars.session_id = ${sessions.id})`,
