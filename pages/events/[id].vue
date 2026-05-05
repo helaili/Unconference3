@@ -7,7 +7,11 @@ interface EventDetail {
   description: string | null
   date: string | null
   submissionRestricted: boolean
+  defaultDiscussionDuration: number
+  defaultWorkshopDuration: number
 }
+
+type SessionType = 'discussion' | 'workshop'
 
 interface SessionRow {
   id: string
@@ -20,6 +24,8 @@ interface SessionRow {
   description: string | null
   tags: string[]
   status: 'proposed' | 'published' | 'scheduled' | 'delivered'
+  type: SessionType
+  duration: number | null
   createdAt: string
   updatedAt: string
 }
@@ -150,6 +156,15 @@ function statusColor(status: SessionRow['status']) {
     default: return 'default'
   }
 }
+
+function effectiveDuration(session: SessionRow): string {
+  if (session.duration !== null) return `${session.duration} min`
+  if (!eventDetail.value) return '—'
+  const def = session.type === 'workshop'
+    ? eventDetail.value.defaultWorkshopDuration
+    : eventDetail.value.defaultDiscussionDuration
+  return `${def} min`
+}
 </script>
 
 <template>
@@ -248,6 +263,17 @@ function statusColor(status: SessionRow['status']) {
                 >
                   {{ session.status }}
                 </v-chip>
+                <v-chip
+                  :color="session.type === 'workshop' ? 'orange' : 'teal'"
+                  size="x-small"
+                  variant="tonal"
+                  class="mr-1"
+                >
+                  {{ session.type }}
+                </v-chip>
+                <span class="text-caption text-medium-emphasis mr-2">
+                  <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>{{ effectiveDuration(session) }}
+                </span>
                 <span v-if="isMySession(session)" class="text-caption text-primary font-weight-medium">My proposal</span>
               </v-card-subtitle>
 
