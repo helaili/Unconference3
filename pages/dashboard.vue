@@ -28,7 +28,7 @@ watch(
   [profile, adminCheck],
   ([p, a]) => {
     if (p && a !== undefined && !a.isAdmin && p.events?.length === 1) {
-      navigateTo(`/events/${p.events[0].id}`)
+      navigateTo(`/events/${p.events[0].id}/sessions`)
     }
   },
   { immediate: true },
