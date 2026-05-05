@@ -233,6 +233,79 @@ describe('Events Endpoints', async () => {
         body: JSON.stringify({ date: '2026-06-15T00:00:00.000Z' }),
       })
     })
+
+    it('seeded event has default discussion and workshop durations', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        headers: { Cookie: adminCookies },
+      })
+      expect(res.status).toBe(200)
+      const event = await res.json() as Record<string, unknown>
+      expect(event.defaultDiscussionDuration).toBe(30)
+      expect(event.defaultWorkshopDuration).toBe(75)
+    })
+
+    it('admin can update defaultDiscussionDuration', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultDiscussionDuration: 45 }),
+      })
+      expect(res.status).toBe(200)
+      const event = await res.json() as Record<string, unknown>
+      expect(event.defaultDiscussionDuration).toBe(45)
+
+      // Restore
+      await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultDiscussionDuration: 30 }),
+      })
+    })
+
+    it('admin can update defaultWorkshopDuration', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultWorkshopDuration: 90 }),
+      })
+      expect(res.status).toBe(200)
+      const event = await res.json() as Record<string, unknown>
+      expect(event.defaultWorkshopDuration).toBe(90)
+
+      // Restore
+      await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultWorkshopDuration: 75 }),
+      })
+    })
+
+    it('returns 400 for invalid defaultDiscussionDuration (zero)', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultDiscussionDuration: 0 }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 for invalid defaultWorkshopDuration (negative)', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultWorkshopDuration: -5 }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('non-admin cannot update default durations', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: userCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultDiscussionDuration: 60 }),
+      })
+      expect(res.status).toBe(403)
+    })
   })
 
   describe('DELETE /api/events/:id', () => {

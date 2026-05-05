@@ -1,8 +1,9 @@
 import { eq, and } from 'drizzle-orm'
 import { sessions } from '~/server/database/schema'
-import type { SessionStatus } from '~/server/database/schema'
+import type { SessionStatus, SessionType } from '~/server/database/schema'
 
 const VALID_STATUSES: SessionStatus[] = ['proposed', 'published', 'scheduled', 'delivered']
+const VALID_TYPES: SessionType[] = ['discussion', 'workshop']
 
 const logger = useLogger('sessions')
 
@@ -51,6 +52,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'tags must be an array of strings' })
   }
 
+  if ('type' in body) {
+    if (typeof body.type !== 'string' || !VALID_TYPES.includes(body.type as SessionType)) {
+      throw createError({ statusCode: 400, statusMessage: `type must be one of: ${VALID_TYPES.join(', ')}` })
+    }
+  }
+
+  if ('duration' in body && body.duration !== null) {
+    if (!Number.isInteger(body.duration) || (body.duration as number) < 1) {
+      throw createError({ statusCode: 400, statusMessage: 'duration must be a positive integer (minutes)' })
+    }
+  }
+
   const perms = await getSessionEditPermissions(event, eventId, found)
   if (!perms.canEdit) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden: you cannot edit this session' })
@@ -60,11 +73,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden: participants cannot change session status' })
   }
 
+  // Only staff and admins can set type to "workshop"
+  if ('type' in body && body.type === 'workshop' && !perms.isStaffOrAdmin) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden: only admins and staff can set session type to workshop' })
+  }
+
+  // Only admins can set the duration
+  if ('duration' in body && !perms.isAdmin) {
+    throw createError({ statusCode: 403, statusMessage: 'Forbidden: only admins can set session duration' })
+  }
+
   const updates: Record<string, unknown> = { updatedAt: new Date() }
   if ('title' in body) updates.title = (body.title as string).trim()
   if ('description' in body) updates.description = body.description
   if ('tags' in body) updates.tags = body.tags
   if ('status' in body) updates.status = body.status
+  if ('type' in body) updates.type = body.type
+  if ('duration' in body) updates.duration = body.duration
 
   const [updated] = await db
     .update(sessions)

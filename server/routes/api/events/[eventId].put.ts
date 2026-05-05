@@ -14,6 +14,8 @@ export default defineEventHandler(async (event) => {
     submissionRestricted?: boolean
     minStars?: number
     maxStars?: number
+    defaultDiscussionDuration?: number
+    defaultWorkshopDuration?: number
   }>(event)
 
   const updates: Record<string, unknown> = { updatedAt: new Date() }
@@ -33,6 +35,18 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'maxStars must be a positive integer' })
     }
     updates.maxStars = body.maxStars
+  }
+  if (body.defaultDiscussionDuration !== undefined) {
+    if (!Number.isInteger(body.defaultDiscussionDuration) || body.defaultDiscussionDuration < 1) {
+      throw createError({ statusCode: 400, statusMessage: 'defaultDiscussionDuration must be a positive integer' })
+    }
+    updates.defaultDiscussionDuration = body.defaultDiscussionDuration
+  }
+  if (body.defaultWorkshopDuration !== undefined) {
+    if (!Number.isInteger(body.defaultWorkshopDuration) || body.defaultWorkshopDuration < 1) {
+      throw createError({ statusCode: 400, statusMessage: 'defaultWorkshopDuration must be a positive integer' })
+    }
+    updates.defaultWorkshopDuration = body.defaultWorkshopDuration
   }
 
   // Validate min <= max using the merged (incoming + existing) values

@@ -29,6 +29,7 @@ export async function migrateAndSeed() {
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
     DROP TYPE IF EXISTS room_type;
+    DROP TYPE IF EXISTS session_type;
     DROP TYPE IF EXISTS session_status;
     DROP TYPE IF EXISTS invitee_role;
   `)

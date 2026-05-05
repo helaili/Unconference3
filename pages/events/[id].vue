@@ -7,7 +7,11 @@ interface EventDetail {
   description: string | null
   date: string | null
   submissionRestricted: boolean
+  defaultDiscussionDuration: number
+  defaultWorkshopDuration: number
 }
+
+type SessionType = 'discussion' | 'workshop'
 
 interface SessionRow {
   id: string
@@ -20,6 +24,8 @@ interface SessionRow {
   description: string | null
   tags: string[]
   status: 'proposed' | 'published' | 'scheduled' | 'delivered'
+  type: SessionType
+  duration: number | null
   createdAt: string
   updatedAt: string
 }
@@ -29,6 +35,7 @@ const eventId = route.params.id as string
 
 const { user } = useUserSession()
 const includeDelivered = ref(false)
+const typeFilter = ref<SessionType | null>(null)
 
 const { data: eventDetail, status: eventStatus, error: eventError } = useFetch<EventDetail>(
   `/api/events/${eventId}`,
@@ -44,6 +51,12 @@ const {
 })
 
 useHead(computed(() => ({ title: eventDetail.value?.name ?? 'Event' })))
+
+const filteredSessions = computed(() => {
+  if (!sessions.value) return []
+  if (!typeFilter.value) return sessions.value
+  return sessions.value.filter(s => s.type === typeFilter.value)
+})
 
 // ── Propose session dialog ────────────────────────────────────────────────────
 const proposeOpen = ref(false)
@@ -150,6 +163,15 @@ function statusColor(status: SessionRow['status']) {
     default: return 'default'
   }
 }
+
+function effectiveDuration(session: SessionRow): string {
+  if (session.duration !== null) return `${session.duration} min`
+  if (!eventDetail.value) return '—'
+  const def = session.type === 'workshop'
+    ? eventDetail.value.defaultWorkshopDuration
+    : eventDetail.value.defaultDiscussionDuration
+  return `${def} min`
+}
 </script>
 
 <template>
@@ -207,7 +229,7 @@ function statusColor(status: SessionRow['status']) {
       </div>
 
       <!-- Filter bar -->
-      <div class="d-flex align-center mb-5">
+      <div class="d-flex align-center flex-wrap ga-3 mb-5">
         <v-switch
           v-model="includeDelivered"
           label="Show delivered sessions"
@@ -215,6 +237,36 @@ function statusColor(status: SessionRow['status']) {
           density="compact"
           color="primary"
         />
+        <v-divider vertical class="mx-1" style="height:24px" />
+        <v-chip
+          :variant="typeFilter === null ? 'flat' : 'outlined'"
+          :color="typeFilter === null ? 'primary' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = null"
+        >
+          All types
+        </v-chip>
+        <v-chip
+          :variant="typeFilter === 'discussion' ? 'flat' : 'outlined'"
+          :color="typeFilter === 'discussion' ? 'teal' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = typeFilter === 'discussion' ? null : 'discussion'"
+        >
+          <v-icon start size="x-small">mdi-forum-outline</v-icon>
+          Discussion
+        </v-chip>
+        <v-chip
+          :variant="typeFilter === 'workshop' ? 'flat' : 'outlined'"
+          :color="typeFilter === 'workshop' ? 'orange' : undefined"
+          size="small"
+          clickable
+          @click="typeFilter = typeFilter === 'workshop' ? null : 'workshop'"
+        >
+          <v-icon start size="x-small">mdi-tools</v-icon>
+          Workshop
+        </v-chip>
       </div>
 
       <!-- Sessions loading -->
@@ -224,7 +276,7 @@ function statusColor(status: SessionRow['status']) {
       <template v-else-if="sessions && sessions.length > 0">
         <v-row>
           <v-col
-            v-for="session in sessions"
+            v-for="session in filteredSessions"
             :key="session.id"
             cols="12"
             sm="6"
@@ -248,6 +300,17 @@ function statusColor(status: SessionRow['status']) {
                 >
                   {{ session.status }}
                 </v-chip>
+                <v-chip
+                  :color="session.type === 'workshop' ? 'orange' : 'teal'"
+                  size="x-small"
+                  variant="tonal"
+                  class="mr-1"
+                >
+                  {{ session.type }}
+                </v-chip>
+                <span class="text-caption text-medium-emphasis mr-2">
+                  <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>{{ effectiveDuration(session) }}
+                </span>
                 <span v-if="isMySession(session)" class="text-caption text-primary font-weight-medium">My proposal</span>
               </v-card-subtitle>
 
@@ -294,7 +357,8 @@ function statusColor(status: SessionRow['status']) {
       </template>
 
       <v-alert v-else type="info" variant="tonal" max-width="600">
-        No sessions yet.
+        <span v-if="typeFilter">No <strong>{{ typeFilter }}</strong> sessions found.</span>
+        <span v-else>No sessions yet.</span>
         <template v-if="!includeDelivered">
           <v-btn variant="text" size="small" @click="includeDelivered = true">Show delivered sessions</v-btn>
         </template>

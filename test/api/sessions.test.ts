@@ -15,6 +15,7 @@ import {
   TEST_SESSION_SCHEDULED_ID,
   TEST_SESSION_DELIVERED_ID,
   TEST_SESSION_PROPOSED_BY_NOAH_ID,
+  TEST_SESSION_STAFF_PUBLISHED_ID,
 } from './helpers'
 
 const BASE = `/api/events/${TEST_EVENT_ID}/sessions`
@@ -550,6 +551,221 @@ describe('Sessions Endpoints', async () => {
         headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
         body: JSON.stringify({ submissionRestricted: false }),
       })
+    })
+  })
+
+  // ─── Session type (discussion vs workshop) ───────────────────────────────
+
+  describe('Session type: POST enforcement', () => {
+    it('sessions have a type field in list response', async () => {
+      const res = await fetch(BASE, { headers: { Cookie: adminCookies } })
+      expect(res.status).toBe(200)
+      const list = await res.json() as Array<{ id: string; type: string }>
+      for (const s of list) {
+        expect(['discussion', 'workshop']).toContain(s.type)
+      }
+    })
+
+    it('participant cannot create a workshop session', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { Cookie: noahCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Unauthorized Workshop', type: 'workshop' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('staff can create a workshop session', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { Cookie: staffCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Staff Workshop', type: 'workshop' }),
+      })
+      expect(res.status).toBe(200)
+      const created = await res.json() as { id: string; type: string }
+      expect(created.type).toBe('workshop')
+
+      // Cleanup
+      await fetch(`${BASE}/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: adminCookies },
+      })
+    })
+
+    it('admin can create a workshop session', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Admin Workshop', type: 'workshop' }),
+      })
+      expect(res.status).toBe(200)
+      const created = await res.json() as { id: string; type: string }
+      expect(created.type).toBe('workshop')
+
+      // Cleanup
+      await fetch(`${BASE}/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: adminCookies },
+      })
+    })
+
+    it('participant creates a discussion session by default', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { Cookie: noahCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Default Type Session' }),
+      })
+      expect(res.status).toBe(200)
+      const created = await res.json() as { id: string; type: string }
+      expect(created.type).toBe('discussion')
+
+      // Cleanup
+      await fetch(`${BASE}/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: noahCookies },
+      })
+    })
+
+    it('returns 400 for invalid type value', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Bad Type', type: 'lecture' }),
+      })
+      expect(res.status).toBe(400)
+    })
+  })
+
+  describe('Session type: PUT enforcement', () => {
+    it('participant cannot change type to workshop', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_NOAH_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: noahCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'workshop' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('moderator author cannot change type to workshop', async () => {
+      // Diana is a moderator and author of TEST_SESSION_PROPOSED_BY_DIANA_ID
+      const res = await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_DIANA_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: dianaCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'workshop' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('admin can change type to workshop', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_DIANA_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'workshop' }),
+      })
+      expect(res.status).toBe(200)
+      const updated = await res.json() as { type: string }
+      expect(updated.type).toBe('workshop')
+
+      // Restore
+      await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_DIANA_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'discussion' }),
+      })
+    })
+
+    it('staff can change type to workshop', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_STAFF_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: staffCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'discussion' }),
+      })
+      expect(res.status).toBe(200)
+      const updated = await res.json() as { type: string }
+      expect(updated.type).toBe('discussion')
+
+      // Restore
+      await fetch(`${BASE}/${TEST_SESSION_STAFF_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'workshop' }),
+      })
+    })
+
+    it('returns 400 for invalid type value', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_DIANA_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'lecture' }),
+      })
+      expect(res.status).toBe(400)
+    })
+  })
+
+  // ─── Session duration ────────────────────────────────────────────────────
+
+  describe('Session duration: PUT enforcement', () => {
+    it('admin can set duration on a session', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 45 }),
+      })
+      expect(res.status).toBe(200)
+      const updated = await res.json() as { duration: number | null }
+      expect(updated.duration).toBe(45)
+
+      // Restore
+      await fetch(`${BASE}/${TEST_SESSION_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: null }),
+      })
+    })
+
+    it('admin can clear duration (set to null)', async () => {
+      // First set a duration
+      await fetch(`${BASE}/${TEST_SESSION_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 60 }),
+      })
+
+      const res = await fetch(`${BASE}/${TEST_SESSION_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: null }),
+      })
+      expect(res.status).toBe(200)
+      const updated = await res.json() as { duration: number | null }
+      expect(updated.duration).toBeNull()
+    })
+
+    it('staff cannot set duration', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_STAFF_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: staffCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 90 }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('participant cannot set duration', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PROPOSED_BY_NOAH_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: noahCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 30 }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('returns 400 for non-positive duration', async () => {
+      const res = await fetch(`${BASE}/${TEST_SESSION_PUBLISHED_ID}`, {
+        method: 'PUT',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: 0 }),
+      })
+      expect(res.status).toBe(400)
     })
   })
 })

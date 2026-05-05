@@ -5,6 +5,7 @@ const route = useRoute()
 const eventId = route.params.id as string
 
 type SessionStatus = 'proposed' | 'published' | 'scheduled' | 'delivered'
+type SessionType = 'discussion' | 'workshop'
 
 interface SessionItem {
   id: string
@@ -17,6 +18,8 @@ interface SessionItem {
   description: string | null
   tags: string[]
   status: SessionStatus
+  type: SessionType
+  duration: number | null
   starCount: number
   createdAt: string
   updatedAt: string
@@ -25,6 +28,8 @@ interface SessionItem {
 interface EventInfo {
   id: string
   name: string
+  defaultDiscussionDuration: number
+  defaultWorkshopDuration: number
 }
 
 const statusOptions: { title: string; value: SessionStatus }[] = [
@@ -68,6 +73,8 @@ const filteredSessions = computed(() => {
 const headers = [
   { title: 'Title', key: 'title' },
   { title: 'Author', key: 'author', sortable: false },
+  { title: 'Type', key: 'type', sortable: false },
+  { title: 'Duration', key: 'duration', sortable: false },
   { title: 'Status', key: 'status' },
   { title: 'Stars', key: 'starCount', sortable: true },
   { title: 'Tags', key: 'tags', sortable: false },
@@ -89,13 +96,15 @@ const form = ref({
   description: '',
   tags: '' as string,
   status: 'proposed' as SessionStatus,
+  type: 'discussion' as SessionType,
+  duration: null as number | null,
 })
 
 const actionError = ref('')
 
 function openCreate() {
   editingSession.value = null
-  form.value = { title: '', description: '', tags: '', status: 'proposed' }
+  form.value = { title: '', description: '', tags: '', status: 'proposed', type: 'discussion', duration: null }
   actionError.value = ''
   dialog.value = true
 }
@@ -107,6 +116,8 @@ function openEdit(session: SessionItem) {
     description: session.description ?? '',
     tags: session.tags.join(', '),
     status: session.status,
+    type: session.type,
+    duration: session.duration,
   }
   actionError.value = ''
   dialog.value = true
@@ -129,6 +140,8 @@ async function save() {
       description: form.value.description.trim() || null,
       tags: parseTags(form.value.tags),
       status: form.value.status,
+      type: form.value.type,
+      duration: form.value.duration ?? undefined,
     }
     if (editingSession.value) {
       await $fetch(`/api/events/${eventId}/sessions/${editingSession.value.id}`, {
@@ -152,7 +165,15 @@ async function save() {
   }
 }
 
-// ── Delete dialog ─────────────────────────────────────────────────────────────
+function effectiveDuration(session: SessionItem): string {
+  if (session.duration !== null) return `${session.duration} min`
+  if (!eventInfo.value) return '—'
+  const def = session.type === 'workshop'
+    ? eventInfo.value.defaultWorkshopDuration
+    : eventInfo.value.defaultDiscussionDuration
+  return `${def} min (default)`
+}
+
 const deleteDialog = ref(false)
 const deletingSession = ref<SessionItem | null>(null)
 const deleting = ref(false)
@@ -246,6 +267,20 @@ async function confirmDelete() {
       :items-per-page="25"
       class="elevation-1"
     >
+      <template #[`item.type`]="{ item }">
+        <v-chip
+          :color="item.type === 'workshop' ? 'orange' : 'blue'"
+          size="small"
+          variant="tonal"
+        >
+          {{ item.type }}
+        </v-chip>
+      </template>
+
+      <template #[`item.duration`]="{ item }">
+        {{ effectiveDuration(item) }}
+      </template>
+
       <template #[`item.status`]="{ item }">
         <v-chip :color="statusColors[item.status]" size="small">
           {{ item.status }}
@@ -327,6 +362,23 @@ async function confirmDelete() {
             :items="statusOptions"
             item-title="title"
             item-value="value"
+            class="mb-2"
+          />
+          <v-select
+            v-model="form.type"
+            label="Session Type"
+            :items="[{ title: 'Discussion', value: 'discussion' }, { title: 'Workshop', value: 'workshop' }]"
+            item-title="title"
+            item-value="value"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model.number="form.duration"
+            label="Duration (minutes) — leave blank to use event default"
+            type="number"
+            :min="1"
+            clearable
+            class="mb-2"
           />
         </v-card-text>
         <v-card-actions>
