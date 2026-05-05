@@ -13,10 +13,15 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v rooms="$(cat /testdata/rooms.json)" \
   <<'EOSQL'
 
-INSERT INTO events (id, name, description, date)
-SELECT id, name, description, date
+INSERT INTO events (id, name, description, date, submission_restricted, min_stars, max_stars, default_discussion_duration, default_workshop_duration)
+SELECT id, name, description, date,
+  COALESCE("submissionRestricted", false),
+  COALESCE("minStars", 4),
+  COALESCE("maxStars", 6),
+  COALESCE("defaultDiscussionDuration", 30),
+  COALESCE("defaultWorkshopDuration", 75)
 FROM json_to_recordset(:'events'::json)
-  AS x(id uuid, name varchar, description text, date timestamp);
+  AS x(id uuid, name varchar, description text, date timestamp, "submissionRestricted" boolean, "minStars" integer, "maxStars" integer, "defaultDiscussionDuration" integer, "defaultWorkshopDuration" integer);
 
 INSERT INTO users (id, github_id, login, first_name, last_name, email, password_hash, avatar_url)
 SELECT id, "githubId", login, "firstName", "lastName", email, "passwordHash", "avatarUrl"
@@ -38,12 +43,13 @@ SELECT "userId", "eventId"
 FROM json_to_recordset(:'user_events'::json)
   AS x("userId" uuid, "eventId" uuid);
 
-INSERT INTO sessions (id, event_id, author_id, title, description, tags, status)
+INSERT INTO sessions (id, event_id, author_id, title, description, tags, status, type)
 SELECT id, "eventId", "authorId", title, description,
   ARRAY(SELECT json_array_elements_text(tags::json))::text[],
-  status::session_status
+  status::session_status,
+  COALESCE(type, 'discussion')::session_type
 FROM json_to_recordset(:'sessions'::json)
-  AS x(id uuid, "eventId" uuid, "authorId" uuid, title varchar, description text, tags text, status varchar);
+  AS x(id uuid, "eventId" uuid, "authorId" uuid, title varchar, description text, tags text, status varchar, type varchar);
 
 INSERT INTO rooms (id, event_id, name, description, max_capacity, type)
 SELECT id, "eventId", name, description, "maxCapacity", type::room_type
