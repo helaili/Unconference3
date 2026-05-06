@@ -134,5 +134,5 @@ npm run db:reset && npm run db:seed   # fresh DB + seed
 npm run dev                            # auto-migrates and starts server
 ```
 
-The `dev` script runs `db:migrate` automatically before starting Nuxt, so any
+The `dev` script runs migrations automatically (via `npx tsx server/database/migrate.ts`) before starting Nuxt, so any
 pending migrations are applied on every `npm run dev`.
