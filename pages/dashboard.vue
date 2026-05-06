@@ -28,7 +28,7 @@ watch(
   [profile, adminCheck],
   ([p, a]) => {
     if (p && a !== undefined && !a.isAdmin && p.events?.length === 1) {
-      navigateTo(`/events/${p.events[0].id}/sessions`)
+      navigateTo(`/events/${p.events[0].id}`)
     }
   },
   { immediate: true },
@@ -176,7 +176,7 @@ watch(
                 size="small"
                 variant="text"
                 color="primary"
-                :to="`/events/${event.id}/sessions`"
+                :to="`/events/${event.id}`"
                 prepend-icon="mdi-presentation"
               >
                 View Sessions
