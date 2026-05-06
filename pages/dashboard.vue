@@ -176,7 +176,7 @@ watch(
                 size="small"
                 variant="text"
                 color="primary"
-                :to="`/events/${event.id}/sessions`"
+                :to="`/events/${event.id}`"
                 prepend-icon="mdi-presentation"
               >
                 View Sessions
