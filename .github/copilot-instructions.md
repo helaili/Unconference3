@@ -106,3 +106,33 @@ test so later tests are unaffected.
 
 New utility functions under `server/utils/` should have a matching unit test in
 `test/unit/`. Unit tests run in plain Node — no database or Nuxt server needed.
+
+## Data Model Changes
+
+Whenever you change `server/database/schema.ts`, you **must** do all three of the following:
+
+### 1. Generate a migration
+
+```bash
+npx drizzle-kit generate
+```
+
+This creates a new numbered SQL file in `drizzle/`. Give it a descriptive name
+(e.g. `drizzle/0007_add_slots.sql`) — rename the generated file if the default
+name is unclear.
+
+### 2. Update seed data
+
+Update the relevant JSON fixture files in `test/db/` so they include values for
+any new columns. Every column that is `NOT NULL` without a database-level
+default **must** have an explicit value in the seed data.
+
+### 3. Verify locally
+
+```bash
+npm run db:reset && npm run db:seed   # fresh DB + seed
+npm run dev                            # auto-migrates and starts server
+```
+
+The `dev` script runs `db:migrate` automatically before starting Nuxt, so any
+pending migrations are applied on every `npm run dev`.
