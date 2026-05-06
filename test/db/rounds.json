@@ -1,0 +1,20 @@
+[
+  {
+    "id": "aa000000-0000-0000-0000-000000000001",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Round 1 - Morning",
+    "duration": 75,
+    "startTime": "2026-06-01T09:00:00.000Z",
+    "minParticipants": 1,
+    "status": "draft"
+  },
+  {
+    "id": "aa000000-0000-0000-0000-000000000002",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Round 2 - Afternoon",
+    "duration": 60,
+    "startTime": "2026-06-01T14:00:00.000Z",
+    "minParticipants": 3,
+    "status": "assigned"
+  }
+]

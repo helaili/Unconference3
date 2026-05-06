@@ -20,6 +20,10 @@ export async function migrateAndSeed() {
 
   // Drop all tables and custom types so migrations are idempotent across test files
   await client.unsafe(`
+    DROP TABLE IF EXISTS slot_registrations CASCADE;
+    DROP TABLE IF EXISTS slots CASCADE;
+    DROP TABLE IF EXISTS round_rooms CASCADE;
+    DROP TABLE IF EXISTS rounds CASCADE;
     DROP TABLE IF EXISTS rooms CASCADE;
     DROP TABLE IF EXISTS session_stars CASCADE;
     DROP TABLE IF EXISTS sessions CASCADE;
@@ -28,6 +32,7 @@ export async function migrateAndSeed() {
     DROP TABLE IF EXISTS invitees CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
+    DROP TYPE IF EXISTS round_status;
     DROP TYPE IF EXISTS room_type;
     DROP TYPE IF EXISTS session_type;
     DROP TYPE IF EXISTS session_status;
@@ -82,6 +87,28 @@ export async function migrateAndSeed() {
   await db.insert(schema.rooms).values(loadJson('rooms.json'))
   await db.insert(schema.sessionStars).values(loadJson('session-stars.json'))
 
+  const roundsFixture = loadJson('rounds.json')
+  if (roundsFixture.length > 0) {
+    await db.insert(schema.rounds).values(
+      roundsFixture.map((r: Record<string, unknown>) => ({
+        ...r,
+        ...(r.startTime ? { startTime: new Date(r.startTime as string) } : {}),
+      })),
+    )
+    const roundRoomsFixture = loadJson('round-rooms.json')
+    if (roundRoomsFixture.length > 0) {
+      await db.insert(schema.roundRooms).values(roundRoomsFixture)
+    }
+    const slotsFixture = loadJson('slots.json')
+    if (slotsFixture.length > 0) {
+      await db.insert(schema.slots).values(slotsFixture)
+    }
+    const slotRegistrationsFixture = loadJson('slot-registrations.json')
+    if (slotRegistrationsFixture.length > 0) {
+      await db.insert(schema.slotRegistrations).values(slotRegistrationsFixture)
+    }
+  }
+
   await client.end()
 }
 
@@ -126,6 +153,10 @@ export const TEST_SESSION_UNSTARRED_PUBLISHED_ID = 'd0000000-0000-0000-0000-0000
 export const STAFF_USER_EMAIL = 'liam.obrien@example.com'
 export const PARTICIPANT_USER_EMAIL = 'noah.williams@example.com'
 export const OUTSIDER_EMAIL = 'test@example.com' // valid user but NOT in the test event's invitees
+
+// Round fixture IDs
+export const TEST_ROUND_DRAFT_ID = 'aa000000-0000-0000-0000-000000000001'
+export const TEST_ROUND_ASSIGNED_ID = 'aa000000-0000-0000-0000-000000000002'
 
 /** Login via the API and return the session cookies string */
 export async function loginAs(

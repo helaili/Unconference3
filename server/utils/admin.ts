@@ -18,7 +18,7 @@ export async function requireAdmin(event: H3Event): Promise<void> {
   const session = await getUserSession(event)
   const user = session?.user
   if (!user) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden: admin access required' })
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
   const isAdminUser = (user.login && isAdmin(user.login)) || (user.email && isAdminEmail(user.email))
   if (!isAdminUser) {
@@ -48,7 +48,7 @@ export async function requireAdminOrStaff(event: H3Event, eventId: string): Prom
   const session = await getUserSession(event)
   const user = session?.user
   if (!user) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden: access denied' })
+    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
   const isAdminUser = (user.login && isAdmin(user.login)) || (user.email && isAdminEmail(user.email))

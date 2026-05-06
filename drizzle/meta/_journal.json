@@ -50,6 +50,13 @@
       "when": 1746612000000,
       "tag": "0006_session_type_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778088102943,
+      "tag": "0007_rounds_slots",
+      "breakpoints": true
     }
   ]
 }
