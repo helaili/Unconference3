@@ -280,14 +280,19 @@ const totalParticipants = computed<number>(() => {
   return ids.size
 })
 
+interface UnassignedEntry {
+  invitee: InviteeItem
+  missingSlots: number[] // slot indices with no coverage
+}
+
 // Accepted invitees who are NOT fully covered for the round.
 // A participant is fully covered when:
 //   - they have a registration in a workshop session (workshops span the whole round), OR
 //   - they have a discussion registration at every slot index in the round.
-const unassignedParticipants = computed<InviteeItem[]>(() => {
+const unassignedParticipants = computed<UnassignedEntry[]>(() => {
   if (!allInvitees.value || !round.value) return []
 
-  const allSlotIndices = [...new Set(round.value.slots.map((s) => s.slotIndex))]
+  const allSlotIndices = [...new Set(round.value.slots.map((s) => s.slotIndex))].sort((a, b) => a - b)
 
   // Build coverage per user: tracked by email (invitees have no userId)
   const coverage = new Map<string, { slotIndices: Set<number>; hasWorkshop: boolean }>()
@@ -302,13 +307,16 @@ const unassignedParticipants = computed<InviteeItem[]>(() => {
     }
   }
 
-  return allInvitees.value.filter((inv) => {
-    if (!inv.invitations.some((i) => i.usedAt !== null)) return false // not accepted
+  const entries: UnassignedEntry[] = []
+  for (const inv of allInvitees.value) {
+    if (!inv.invitations.some((i) => i.usedAt !== null)) continue // not accepted
     const c = coverage.get(inv.email)
-    if (!c) return true // no registrations at all
-    if (c.hasWorkshop) return false // workshop covers the whole round
-    return !allSlotIndices.every((idx) => c.slotIndices.has(idx)) // gap in discussions
-  })
+    if (c?.hasWorkshop) continue // workshop covers the whole round
+    const coveredIndices = c?.slotIndices ?? new Set<number>()
+    const missingSlots = allSlotIndices.filter((idx) => !coveredIndices.has(idx))
+    if (missingSlots.length > 0) entries.push({ invitee: inv, missingSlots })
+  }
+  return entries
 })
 
 // ── Expanded session detail ───────────────────────────────────────────────────
@@ -637,20 +645,31 @@ function toggleSession(sessionId: string) {
                 </v-chip>
               </v-card-title>
               <v-card-text v-if="!unassignedParticipants.length" class="text-grey text-body-2">
-                All accepted participants are assigned to at least one session.
+                All accepted participants are fully covered for every slot.
               </v-card-text>
               <v-list v-else density="compact">
                 <v-list-item
-                  v-for="inv in unassignedParticipants"
-                  :key="inv.id"
-                  :subtitle="inv.email"
+                  v-for="entry in unassignedParticipants"
+                  :key="entry.invitee.id"
                 >
                   <template #prepend>
                     <v-avatar color="warning" size="32" class="mr-2">
                       <v-icon size="small">mdi-account-alert</v-icon>
                     </v-avatar>
                   </template>
-                  <v-list-item-title>{{ inv.firstName }} {{ inv.lastName }}</v-list-item-title>
+                  <v-list-item-title>{{ entry.invitee.firstName }} {{ entry.invitee.lastName }}</v-list-item-title>
+                  <v-list-item-subtitle class="d-flex align-center flex-wrap ga-1 mt-1">
+                    <span class="text-caption text-medium-emphasis mr-1">Missing:</span>
+                    <v-chip
+                      v-for="idx in entry.missingSlots"
+                      :key="idx"
+                      size="x-small"
+                      color="warning"
+                      variant="tonal"
+                    >
+                      Slot {{ idx + 1 }}
+                    </v-chip>
+                  </v-list-item-subtitle>
                 </v-list-item>
               </v-list>
             </v-card>
