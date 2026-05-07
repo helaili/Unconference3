@@ -62,6 +62,19 @@ interface RoundDetail {
   slots: SlotItem[]
 }
 
+interface Invitation {
+  usedAt: string | null
+}
+
+interface InviteeItem {
+  id: string
+  firstName: string
+  lastName: string
+  email: string
+  role: string
+  invitations: Invitation[]
+}
+
 useHead({ title: 'Round Detail' })
 
 const statusColors: Record<RoundStatus, string> = {
@@ -86,6 +99,11 @@ const { data: round, status: fetchStatus, refresh } = useAsyncData(
 const { data: allRooms } = useAsyncData(
   `rooms-${eventId}`,
   () => $fetch<RoomItem[]>(`/api/events/${eventId}/rooms`),
+)
+
+const { data: allInvitees } = useAsyncData(
+  `invitees-${eventId}`,
+  () => $fetch<InviteeItem[]>(`/api/events/${eventId}/invitees`),
 )
 
 // ── Derived data ─────────────────────────────────────────────────────────────
@@ -260,6 +278,20 @@ const totalParticipants = computed<number>(() => {
     for (const reg of slot.registrations) ids.add(reg.userId)
   }
   return ids.size
+})
+
+// Accepted invitees whose email doesn't appear in any slot registration
+const unassignedParticipants = computed<InviteeItem[]>(() => {
+  if (!allInvitees.value || !round.value) return []
+  const registeredEmails = new Set<string>()
+  for (const slot of round.value.slots) {
+    for (const reg of slot.registrations) registeredEmails.add(reg.user.email)
+  }
+  return allInvitees.value.filter(
+    (inv) =>
+      inv.invitations.some((i) => i.usedAt !== null) &&
+      !registeredEmails.has(inv.email),
+  )
 })
 
 // ── Expanded session detail ───────────────────────────────────────────────────
@@ -575,6 +607,33 @@ function toggleSession(sessionId: string) {
 
                 <v-list-item v-if="!assignedSessions.length" class="text-grey">
                   No sessions assigned.
+                </v-list-item>
+              </v-list>
+            </v-card>
+
+            <!-- ── Unassigned participants ─────────────────────────────── -->
+            <v-card variant="outlined" class="mt-4">
+              <v-card-title class="text-subtitle-1 d-flex align-center ga-2">
+                Unassigned Participants
+                <v-chip size="x-small" color="warning" variant="tonal">
+                  {{ unassignedParticipants.length }}
+                </v-chip>
+              </v-card-title>
+              <v-card-text v-if="!unassignedParticipants.length" class="text-grey text-body-2">
+                All accepted participants are assigned to at least one session.
+              </v-card-text>
+              <v-list v-else density="compact">
+                <v-list-item
+                  v-for="inv in unassignedParticipants"
+                  :key="inv.id"
+                  :subtitle="inv.email"
+                >
+                  <template #prepend>
+                    <v-avatar color="warning" size="32" class="mr-2">
+                      <v-icon size="small">mdi-account-alert</v-icon>
+                    </v-avatar>
+                  </template>
+                  <v-list-item-title>{{ inv.firstName }} {{ inv.lastName }}</v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-card>
