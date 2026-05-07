@@ -31,6 +31,16 @@ export interface ParticipantAssignment {
   userId: string
 }
 
+/**
+ * Timing parameters used to compute slot counts and time-window overlaps.
+ * breakDuration is the gap between consecutive discussion slots.
+ */
+export interface SlotTiming {
+  discussionDuration: number
+  workshopDuration: number
+  breakDuration: number
+}
+
 /** True if a room can host the given session type. */
 export function roomMatchesSessionType(
   roomType: 'workshop' | 'meeting' | 'both',
@@ -43,10 +53,88 @@ export function roomMatchesSessionType(
 }
 
 /**
+ * Number of sessions of duration `sessionDuration` that fit in a round of
+ * `roundDuration` with `breakDuration` between them (no trailing break).
+ *
+ * Formula: floor((roundDuration + breakDuration) / (sessionDuration + breakDuration))
+ *
+ * Examples:
+ *   countSlots(75, 30, 15) = floor(90/45) = 2  ✓
+ *   countSlots(60, 30, 15) = floor(75/45) = 1  (not 2!)
+ *   countSlots(75, 75, 15) = floor(90/90) = 1  ✓
+ */
+export function countSlots(roundDuration: number, sessionDuration: number, breakDuration: number): number {
+  if (roundDuration < sessionDuration) return 0
+  if (breakDuration <= 0) return Math.floor(roundDuration / sessionDuration)
+  return Math.floor((roundDuration + breakDuration) / (sessionDuration + breakDuration))
+}
+
+/**
+ * Returns the time window (minutes from round start) occupied by a slot.
+ * Discussion and workshop slots use their respective durations as the unit.
+ */
+export function slotTimeWindow(
+  slotIndex: number,
+  sessionType: 'discussion' | 'workshop',
+  timing: SlotTiming,
+): { start: number; end: number } {
+  if (sessionType === 'workshop') {
+    const start = slotIndex * (timing.workshopDuration + timing.breakDuration)
+    return { start, end: start + timing.workshopDuration }
+  }
+  const start = slotIndex * (timing.discussionDuration + timing.breakDuration)
+  return { start, end: start + timing.discussionDuration }
+}
+
+/** True when two half-open [start, end) intervals overlap. */
+export function windowsOverlap(
+  a: { start: number; end: number },
+  b: { start: number; end: number },
+): boolean {
+  return a.start < b.end && b.start < a.end
+}
+
+/**
+ * Returns all discussion slot indices whose time window overlaps with the
+ * workshop at `workshopSlotIndex`.
+ *
+ * Example (W=75, D=30, B=15):
+ *   workshop at slotIndex 0 → [0, 30) → [0, 75) → blocks discussion 0 and 1
+ */
+export function workshopBlockedSlots(workshopSlotIndex: number, timing: SlotTiming): number[] {
+  const ww = slotTimeWindow(workshopSlotIndex, 'workshop', timing)
+  const blocked: number[] = []
+  const discUnit = timing.discussionDuration + timing.breakDuration
+  for (let j = 0; j * discUnit < ww.end; j++) {
+    const dw = slotTimeWindow(j, 'discussion', timing)
+    if (windowsOverlap(ww, dw)) blocked.push(j)
+  }
+  return blocked
+}
+
+/**
+ * Returns the set of slot indices that a registration for `sessionType` at
+ * `slotIndex` blocks for future assignment.
+ * - Workshops block all overlapping discussion indices (via workshopBlockedSlots).
+ * - Discussions block only their own slotIndex.
+ * When `timing` is absent, falls back to single-index blocking.
+ */
+function blockedSlotsFor(
+  slotIndex: number,
+  sessionType: 'discussion' | 'workshop',
+  timing?: SlotTiming,
+): number[] {
+  if (timing && sessionType === 'workshop') {
+    return workshopBlockedSlots(slotIndex, timing)
+  }
+  return [slotIndex]
+}
+
+/**
  * Builds a slot plan for one session type (either all workshops or all discussions).
  *
  * Rules:
- *  - Slots are created: floor(roundDuration / defaultDuration) per room.
+ *  - Slots are created: countSlots(roundDuration, defaultDuration, breakDuration) per room.
  *  - Sessions are assigned most-popular-first to biggest-room-first.
  *  - A session is duplicated when starCount > top-room capacity AND a spare slot
  *    at a different slotIndex exists.  If no different-index slot exists, both
@@ -58,6 +146,7 @@ export function buildSlotPlan(
   rooms: AlgoRoom[],
   roundDuration: number,
   defaultDuration: number,
+  breakDuration = 0,
 ): SlotPlan[] {
   // Sort rooms by capacity DESC (deterministic: stable sort)
   const sortedRooms = [...rooms].sort((a, b) => b.maxCapacity - a.maxCapacity)
@@ -65,7 +154,7 @@ export function buildSlotPlan(
   // Build the slot queue: (room, slotIndex) pairs, biggest room first then by slotIndex
   const queue: { roomId: string; slotIndex: number; capacity: number }[] = []
   for (const room of sortedRooms) {
-    const count = Math.floor(roundDuration / defaultDuration)
+    const count = countSlots(roundDuration, defaultDuration, breakDuration)
     for (let i = 0; i < count; i++) {
       queue.push({ roomId: room.id, slotIndex: i, capacity: room.maxCapacity })
     }
@@ -117,15 +206,20 @@ export interface VoterRecord {
 /**
  * Assigns participants (voters) to slots according to these rules:
  *  - Process workshop slots first, then discussion slots (within each group: most-popular first).
- *  - A user cannot be booked into two slots at the same slotIndex.
+ *  - A user cannot be booked into two slots whose time windows overlap.
  *  - A user can only attend one instance of a duplicated session.
  *  - First-come first-served (voters array is pre-sorted by star timestamp).
  *  - Slot capacity is respected.
+ *
+ *  When `timing` is provided, workshop registrations block all overlapping
+ *  discussion slot indices (based on the time-window model). Without timing,
+ *  only exact slotIndex conflicts are prevented.
  */
 export function assignParticipants(
   slots: SlotPlan[],
   voters: VoterRecord[],
   sessions: AlgoSession[],
+  timing?: SlotTiming,
 ): ParticipantAssignment[] {
   // Sort sessions: workshops first, then discussions; within each group sort by starCount DESC
   const orderedSessions = [...sessions].sort((a, b) => {
@@ -150,10 +244,14 @@ export function assignParticipants(
     sessionVotersMap.set(v.sessionId, arr)
   }
 
+  // Build lookup: sessionId → session (for type lookup)
+  const sessionTypeMap = new Map<string, 'discussion' | 'workshop'>()
+  for (const s of sessions) sessionTypeMap.set(s.id, s.type)
+
   const assignments: ParticipantAssignment[] = []
   // Mutable fill counters per slotId
   const slotFill = new Map<string, number>()
-  // userId → slotIndexes booked
+  // userId → slotIndexes effectively blocked (discussion-index space)
   const userIndexBookings = new Map<string, Set<number>>()
   // userId → sessionIds booked
   const userSessionBookings = new Map<string, Set<string>>()
@@ -173,17 +271,21 @@ export function assignParticipants(
       // Skip if already assigned to this session (another instance)
       if (userSessions.has(session.id)) continue
 
-      // Find a slot with capacity and no time conflict
+      // Find a slot with capacity and no time-window conflict
       const target = sessionSlots.find((sl) => {
         const fill = slotFill.get(slotKey(sl)) ?? 0
-        return fill < sl.capacity && !userIndexes.has(sl.slotIndex)
+        if (fill >= sl.capacity) return false
+        const candidateBlocked = blockedSlotsFor(sl.slotIndex, session.type, timing)
+        return !candidateBlocked.some((idx) => userIndexes.has(idx))
       })
       if (!target) continue
 
       const key = slotKey(target)
       slotFill.set(key, (slotFill.get(key) ?? 0) + 1)
 
-      userIndexes.add(target.slotIndex)
+      // Record all discussion slot indices blocked by this assignment
+      const blocked = blockedSlotsFor(target.slotIndex, session.type, timing)
+      for (const idx of blocked) userIndexes.add(idx)
       userIndexBookings.set(userId, userIndexes)
 
       userSessions.add(session.id)
@@ -195,3 +297,4 @@ export function assignParticipants(
 
   return assignments
 }
+

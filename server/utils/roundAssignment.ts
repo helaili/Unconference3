@@ -2,7 +2,7 @@ import { eq, and, inArray, sql } from 'drizzle-orm'
 import { rounds, roundRooms, rooms, sessions, sessionStars, slots, slotRegistrations } from '../database/schema'
 import { useDB } from '../database'
 import { buildSlotPlan, assignParticipants, roomMatchesSessionType } from './roundAlgorithm'
-import type { AlgoRoom, AlgoSession, VoterRecord } from './roundAlgorithm'
+import type { AlgoRoom, AlgoSession, VoterRecord, SlotTiming } from './roundAlgorithm'
 
 /**
  * Runs the full assignment algorithm for a round:
@@ -24,6 +24,12 @@ export async function assignRound(roundId: string): Promise<void> {
   })
   const defaultDiscussionDuration = eventRow?.defaultDiscussionDuration ?? 30
   const defaultWorkshopDuration = eventRow?.defaultWorkshopDuration ?? 75
+
+  const timing: SlotTiming = {
+    discussionDuration: defaultDiscussionDuration,
+    workshopDuration: defaultWorkshopDuration,
+    breakDuration: round.breakDuration,
+  }
 
   const enabledRooms: AlgoRoom[] = (
     await db
@@ -65,8 +71,8 @@ export async function assignRound(roundId: string): Promise<void> {
   const discussionRooms = enabledRooms.filter((r) => roomMatchesSessionType(r.type, 'discussion'))
 
   const slotPlan = [
-    ...buildSlotPlan(workshopSessions, workshopRooms, round.duration, defaultWorkshopDuration),
-    ...buildSlotPlan(discussionSessions, discussionRooms, round.duration, defaultDiscussionDuration),
+    ...buildSlotPlan(workshopSessions, workshopRooms, round.duration, defaultWorkshopDuration, round.breakDuration),
+    ...buildSlotPlan(discussionSessions, discussionRooms, round.duration, defaultDiscussionDuration, round.breakDuration),
   ]
 
   await db.delete(slots).where(eq(slots.roundId, roundId))
@@ -92,7 +98,7 @@ export async function assignRound(roundId: string): Promise<void> {
         .orderBy(sessionStars.createdAt)
     : []
 
-  const assignments = assignParticipants(planWithIds, voterRows as VoterRecord[], eligibleSessions)
+  const assignments = assignParticipants(planWithIds, voterRows as VoterRecord[], eligibleSessions, timing)
 
   const slotIdMap = new Map<string, string>()
   for (const p of planWithIds) {

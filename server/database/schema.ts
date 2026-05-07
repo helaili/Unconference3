@@ -184,7 +184,7 @@ export const sessionStarsRelations = relations(sessionStars, ({ one }) => ({
 }))
 
 // ── Round status ──────────────────────────────────────────────────────────────
-export const roundStatusValues = ['draft', 'assigned', 'open'] as const
+export const roundStatusValues = ['draft', 'assigned', 'open', 'closed'] as const
 export type RoundStatus = (typeof roundStatusValues)[number]
 export const roundStatusEnum = pgEnum('round_status', roundStatusValues)
 
@@ -217,6 +217,7 @@ export const rounds = pgTable('rounds', {
   duration: integer('duration').notNull(),
   startTime: timestamp('start_time', { mode: 'date' }),
   minParticipants: integer('min_participants').notNull().default(1),
+  breakDuration: integer('break_duration').notNull().default(15),
   status: roundStatusEnum('status').notNull().default('draft'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

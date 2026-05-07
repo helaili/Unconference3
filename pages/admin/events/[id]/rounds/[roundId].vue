@@ -55,6 +55,7 @@ interface RoundDetail {
   duration: number
   startTime: string | null
   minParticipants: number
+  breakDuration: number
   status: RoundStatus
   createdAt: string
   updatedAt: string
@@ -179,6 +180,7 @@ const settingsForm = ref({
   duration: 75,
   startTime: '',
   minParticipants: 3,
+  breakDuration: 15,
 })
 
 function openSettings() {
@@ -188,6 +190,7 @@ function openSettings() {
     duration: round.value.duration,
     startTime: round.value.startTime ? round.value.startTime.slice(0, 16) : '',
     minParticipants: round.value.minParticipants,
+    breakDuration: round.value.breakDuration,
   }
   settingsError.value = ''
   settingsDialog.value = true
@@ -204,6 +207,7 @@ async function saveSettings() {
         duration: settingsForm.value.duration,
         startTime: settingsForm.value.startTime || null,
         minParticipants: settingsForm.value.minParticipants,
+        breakDuration: settingsForm.value.breakDuration,
       },
     })
     settingsDialog.value = false
@@ -445,6 +449,9 @@ function toggleSession(sessionId: string) {
         </v-chip>
         <v-chip prepend-icon="mdi-account-multiple" variant="tonal" color="indigo">
           {{ totalParticipants }} registered
+        </v-chip>
+        <v-chip prepend-icon="mdi-timer-pause-outline" variant="tonal" color="orange">
+          {{ round.breakDuration }} min break
         </v-chip>
         <v-chip v-if="round.startTime" prepend-icon="mdi-calendar-clock" variant="tonal" color="teal">
           {{
@@ -746,6 +753,13 @@ function toggleSession(sessionId: string) {
             label="Min participants per session"
             type="number"
             min="1"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model.number="settingsForm.breakDuration"
+            label="Break between slots (minutes)"
+            type="number"
+            min="0"
           />
         </v-card-text>
         <v-card-actions>

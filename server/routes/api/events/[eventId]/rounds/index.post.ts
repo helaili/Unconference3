@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
     duration?: number
     startTime?: string
     minParticipants?: number
+    breakDuration?: number
   }>(event)
 
   if (body.duration === undefined || body.duration === null) {
@@ -38,6 +39,15 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'minParticipants must be a positive integer' })
   }
 
+  if (
+    body.breakDuration !== undefined &&
+    (typeof body.breakDuration !== 'number' ||
+      !Number.isInteger(body.breakDuration) ||
+      body.breakDuration < 0)
+  ) {
+    throw createError({ statusCode: 400, statusMessage: 'breakDuration must be a non-negative integer' })
+  }
+
   const db = useDB()
 
   const [created] = await db
@@ -48,6 +58,7 @@ export default defineEventHandler(async (event) => {
       duration: body.duration,
       startTime: body.startTime ? new Date(body.startTime) : null,
       minParticipants: body.minParticipants ?? 1,
+      breakDuration: body.breakDuration ?? 15,
     })
     .returning()
 

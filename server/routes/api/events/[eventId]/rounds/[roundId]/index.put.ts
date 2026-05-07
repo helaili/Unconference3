@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
     duration?: number
     startTime?: string | null
     minParticipants?: number
+    breakDuration?: number
     status?: string
   }>(event)
 
@@ -48,8 +49,17 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'minParticipants must be a positive integer' })
   }
 
-  if (body.status && !['draft', 'assigned', 'open'].includes(body.status)) {
-    throw createError({ statusCode: 400, statusMessage: 'status must be one of: draft, assigned, open' })
+  if (
+    body.breakDuration !== undefined &&
+    (typeof body.breakDuration !== 'number' ||
+      !Number.isInteger(body.breakDuration) ||
+      body.breakDuration < 0)
+  ) {
+    throw createError({ statusCode: 400, statusMessage: 'breakDuration must be a non-negative integer' })
+  }
+
+  if (body.status && !['draft', 'assigned', 'open', 'closed'].includes(body.status)) {
+    throw createError({ statusCode: 400, statusMessage: 'status must be one of: draft, assigned, open, closed' })
   }
 
   const [updated] = await db
@@ -64,7 +74,8 @@ export default defineEventHandler(async (event) => {
             : null
           : existing.startTime,
       minParticipants: body.minParticipants ?? existing.minParticipants,
-      status: (body.status as 'draft' | 'assigned' | 'open' | undefined) ?? existing.status,
+      breakDuration: body.breakDuration ?? existing.breakDuration,
+      status: (body.status as 'draft' | 'assigned' | 'open' | 'closed' | undefined) ?? existing.status,
       updatedAt: new Date(),
     })
     .where(and(eq(rounds.id, roundId), eq(rounds.eventId, eventId)))

@@ -3,8 +3,10 @@ import {
   roomMatchesSessionType,
   buildSlotPlan,
   assignParticipants,
+  countSlots,
+  workshopBlockedSlots,
 } from '../../server/utils/roundAlgorithm'
-import type { AlgoRoom, AlgoSession, VoterRecord } from '../../server/utils/roundAlgorithm'
+import type { AlgoRoom, AlgoSession, VoterRecord, SlotTiming } from '../../server/utils/roundAlgorithm'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +21,8 @@ function session(id: string, type: AlgoSession['type'], stars: number): AlgoSess
 function vote(userId: string, sessionId: string): VoterRecord {
   return { userId, sessionId }
 }
+
+const timing15: SlotTiming = { discussionDuration: 30, workshopDuration: 75, breakDuration: 15 }
 
 // ─── roomMatchesSessionType ───────────────────────────────────────────────────
 
@@ -48,6 +52,68 @@ describe('roomMatchesSessionType', () => {
   })
 })
 
+// ─── countSlots ───────────────────────────────────────────────────────────────
+
+describe('countSlots', () => {
+  it('75-min round / 30-min slot / 15-min break → 2 slots', () => {
+    expect(countSlots(75, 30, 15)).toBe(2)
+  })
+
+  it('60-min round / 30-min slot / 15-min break → 1 slot (not 2!)', () => {
+    expect(countSlots(60, 30, 15)).toBe(1)
+  })
+
+  it('120-min round / 30-min slot / 15-min break → 3 slots', () => {
+    expect(countSlots(120, 30, 15)).toBe(3)
+  })
+
+  it('75-min round / 75-min workshop / 15-min break → 1 slot', () => {
+    expect(countSlots(75, 75, 15)).toBe(1)
+  })
+
+  it('zero break falls back to simple division', () => {
+    expect(countSlots(60, 30, 0)).toBe(2)
+  })
+
+  it('round shorter than session duration → 0 slots', () => {
+    expect(countSlots(20, 30, 15)).toBe(0)
+  })
+})
+
+// ─── workshopBlockedSlots ─────────────────────────────────────────────────────
+
+describe('workshopBlockedSlots', () => {
+  it('workshop at slotIndex 0 (W=75, D=30, B=15) blocks discussion indices [0, 1]', () => {
+    expect(workshopBlockedSlots(0, timing15)).toEqual([0, 1])
+  })
+
+  it('workshop at slotIndex 1 (W=75, D=30, B=15) blocks discussion indices [2, 3]', () => {
+    // workshop at slotIndex 1: starts at 90 (75+15), ends at 165
+    // discussion 2: 90–120 ✓; discussion 3: 135–165 ✓
+    expect(workshopBlockedSlots(1, timing15)).toEqual([2, 3])
+  })
+
+  it('exact-boundary: discussion starting exactly at workshop end is NOT blocked', () => {
+    // W=60, D=30, B=0 → workshop 0–60; disc0: 0–30, disc1: 30–60, disc2: 60–90
+    // disc1 overlaps (30<60 AND 0<60); disc2 starts at boundary (60<60 is false → no overlap)
+    const noBreak: SlotTiming = { workshopDuration: 60, discussionDuration: 30, breakDuration: 0 }
+    const blocked = workshopBlockedSlots(0, noBreak)
+    expect(blocked).toContain(0)
+    expect(blocked).toContain(1)
+    expect(blocked).not.toContain(2) // starts exactly at workshop end → no overlap
+  })
+
+  it('workshop with zero break duration still blocks correct discussion slots', () => {
+    // W=75, D=30, B=0 → workshop 0–75; disc0:0–30, disc1:30–60, disc2:60–90
+    const t: SlotTiming = { workshopDuration: 75, discussionDuration: 30, breakDuration: 0 }
+    const blocked = workshopBlockedSlots(0, t)
+    expect(blocked).toContain(0)
+    expect(blocked).toContain(1)
+    expect(blocked).toContain(2) // disc2 starts at 60 < 75 → overlap
+    expect(blocked).not.toContain(3) // disc3 starts at 90 ≥ 75 → no overlap
+  })
+})
+
 // ─── buildSlotPlan ────────────────────────────────────────────────────────────
 
 describe('buildSlotPlan', () => {
@@ -62,6 +128,16 @@ describe('buildSlotPlan', () => {
 
   it('Scenario 1: correct slot counts for 75-min round with 75-min workshops', () => {
     const plan = buildSlotPlan([], [room('W', 'workshop', 30)], 75, 75)
+    expect(plan).toHaveLength(1)
+  })
+
+  it('breaks-aware: 75-min round / 30-min discussions / 15-min break → 2 slots per room', () => {
+    const plan = buildSlotPlan([], [room('R', 'meeting', 10)], 75, 30, 15)
+    expect(plan).toHaveLength(2)
+  })
+
+  it('breaks-aware: 60-min round / 30-min discussions / 15-min break → 1 slot per room', () => {
+    const plan = buildSlotPlan([], [room('R', 'meeting', 10)], 60, 30, 15)
     expect(plan).toHaveLength(1)
   })
 
@@ -270,4 +346,59 @@ describe('assignParticipants', () => {
     const u99 = result.find((r) => r.userId === 'u99')
     expect(u99).toBeUndefined()
   })
+
+  it('workshop participant is blocked from ALL overlapping discussion slots', () => {
+    // Round: 75 min, D=30, B=15 → 2 discussion slots (0, 1)
+    // Workshop at slotIndex 0 spans 75 min → overlaps discussion slots 0 AND 1
+    const slots = [
+      { roomId: 'Wshop', slotIndex: 0, sessionId: 'W', capacity: 10 },
+      { roomId: 'R1', slotIndex: 0, sessionId: 'D1', capacity: 10 },
+      { roomId: 'R1', slotIndex: 1, sessionId: 'D2', capacity: 10 },
+    ]
+    const voters: VoterRecord[] = [
+      vote('u1', 'W'),
+      vote('u1', 'D1'), // concurrent with workshop
+      vote('u1', 'D2'), // overlapping with workshop (different slotIndex, same time window!)
+    ]
+    const sessions = [
+      session('W', 'workshop', 3),
+      session('D1', 'discussion', 2),
+      session('D2', 'discussion', 2),
+    ]
+
+    const result = assignParticipants(slots, voters, sessions, timing15)
+
+    const u1Assignments = result.filter((r) => r.userId === 'u1')
+    // u1 should only be in the workshop — both D1 and D2 are blocked
+    expect(u1Assignments).toHaveLength(1)
+    expect(u1Assignments[0].sessionId).toBe('W')
+  })
+
+  it('workshop participant blocked from discussion at slotIndex 1 even without timing (old behavior)', () => {
+    // Without timing param, only exact slotIndex conflicts are caught
+    const slots = [
+      { roomId: 'Wshop', slotIndex: 0, sessionId: 'W', capacity: 10 },
+      { roomId: 'R1', slotIndex: 0, sessionId: 'D1', capacity: 10 },
+      { roomId: 'R1', slotIndex: 1, sessionId: 'D2', capacity: 10 },
+    ]
+    const voters: VoterRecord[] = [
+      vote('u1', 'W'),
+      vote('u1', 'D1'),
+      vote('u1', 'D2'),
+    ]
+    const sessions = [
+      session('W', 'workshop', 3),
+      session('D1', 'discussion', 2),
+      session('D2', 'discussion', 2),
+    ]
+
+    // Without timing: only slotIndex 0 is blocked by the workshop
+    const result = assignParticipants(slots, voters, sessions) // no timing
+    const u1Assignments = result.filter((r) => r.userId === 'u1')
+    // Old behavior: D2 at slotIndex 1 is NOT blocked → u1 gets W and D2
+    expect(u1Assignments).toHaveLength(2)
+    const sessionIds = u1Assignments.map((a) => a.sessionId).sort()
+    expect(sessionIds).toEqual(['D2', 'W'])
+  })
 })
+

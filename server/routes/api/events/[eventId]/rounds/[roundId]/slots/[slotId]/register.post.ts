@@ -1,5 +1,7 @@
 import { eq, and } from 'drizzle-orm'
 import { rounds, slots, slotRegistrations, users } from '~/server/database/schema'
+import { slotTimeWindow, windowsOverlap } from '~/server/utils/roundAlgorithm'
+import type { SlotTiming } from '~/server/utils/roundAlgorithm'
 
 const logger = useLogger('rounds')
 
@@ -13,8 +15,8 @@ export default defineEventHandler(async (event) => {
 
   await requireEventAccess(event, eventId)
 
-  const session = await getUserSession(event)
-  const userEmail = session?.user?.email
+  const httpSession = await getUserSession(event)
+  const userEmail = httpSession?.user?.email
   if (!userEmail) {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
@@ -35,13 +37,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Round is not yet open for booking' })
   }
 
-  const [slot] = await db
-    .select()
-    .from(slots)
-    .where(and(eq(slots.id, slotId), eq(slots.roundId, roundId)))
-    .limit(1)
+  const targetSlot = await db.query.slots.findFirst({
+    where: and(eq(slots.id, slotId), eq(slots.roundId, roundId)),
+    with: { room: true, session: true },
+  })
 
-  if (!slot || !slot.sessionId) {
+  if (!targetSlot || !targetSlot.sessionId) {
     throw createError({ statusCode: 404, statusMessage: 'Slot not found or has no session assigned' })
   }
 
@@ -55,39 +56,46 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'User not found' })
   }
 
-  // Check for slotIndex conflict
-  const existingAtSameTime = await db.query.slotRegistrations.findFirst({
+  // Fetch event durations for time-window calculations
+  const eventRow = await db.query.events.findFirst({
+    where: (e) => eq(e.id, eventId),
+    columns: { defaultDiscussionDuration: true, defaultWorkshopDuration: true },
+  })
+  const timing: SlotTiming = {
+    discussionDuration: eventRow?.defaultDiscussionDuration ?? 30,
+    workshopDuration: eventRow?.defaultWorkshopDuration ?? 75,
+    breakDuration: round.breakDuration,
+  }
+
+  // Compute target slot's time window
+  const targetType = (targetSlot.session?.type ?? 'discussion') as 'discussion' | 'workshop'
+  const targetWindow = slotTimeWindow(targetSlot.slotIndex, targetType, timing)
+
+  // Get all user's existing registrations for this round with slot/session info
+  const existingRegs = await db.query.slotRegistrations.findMany({
     where: eq(slotRegistrations.userId, dbUser.id),
     with: {
       slot: {
-        where: and(eq(slots.roundId, roundId), eq(slots.slotIndex, slot.slotIndex)),
+        with: { session: true },
       },
     },
   })
 
-  if (existingAtSameTime?.slot?.id) {
-    throw createError({ statusCode: 409, statusMessage: 'You are already booked for another session at this time' })
+  const roundRegs = existingRegs.filter((r) => r.slot?.roundId === roundId)
+
+  // Check for time-window conflict
+  for (const reg of roundRegs) {
+    if (!reg.slot) continue
+    const regType = (reg.slot.session?.type ?? 'discussion') as 'discussion' | 'workshop'
+    const regWindow = slotTimeWindow(reg.slot.slotIndex, regType, timing)
+    if (windowsOverlap(targetWindow, regWindow)) {
+      throw createError({ statusCode: 409, statusMessage: 'You are already booked for another session at this time' })
+    }
   }
 
   // Check room capacity
   const registrationCount = await db.$count(slotRegistrations, eq(slotRegistrations.slotId, slotId))
-  const [roomRow] = await db
-    .select({ maxCapacity: slots.roundId })
-    .from(slots)
-    .where(eq(slots.id, slotId))
-    .limit(1)
-
-  // Get actual capacity from the room
-  const slotWithRoom = await db.query.slots.findFirst({
-    where: eq(slots.id, slotId),
-    with: { room: true },
-  })
-
-  if (!slotWithRoom) {
-    throw createError({ statusCode: 404, statusMessage: 'Slot not found' })
-  }
-
-  if (registrationCount >= slotWithRoom.room.maxCapacity) {
+  if (registrationCount >= targetSlot.room.maxCapacity) {
     throw createError({ statusCode: 409, statusMessage: 'This session is full' })
   }
 

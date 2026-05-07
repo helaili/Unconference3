@@ -13,6 +13,7 @@ interface RoundItem {
   duration: number
   startTime: string | null
   minParticipants: number
+  breakDuration: number
   status: RoundStatus
   createdAt: string
   updatedAt: string
@@ -45,11 +46,12 @@ const form = ref({
   duration: 75,
   startTime: '',
   minParticipants: 3,
+  breakDuration: 15,
 })
 
 function openCreate() {
   editingRound.value = null
-  form.value = { name: '', duration: 75, startTime: '', minParticipants: 3 }
+  form.value = { name: '', duration: 75, startTime: '', minParticipants: 3, breakDuration: 15 }
   actionError.value = ''
   dialog.value = true
 }
@@ -61,6 +63,7 @@ function openEdit(round: RoundItem) {
     duration: round.duration,
     startTime: round.startTime ? round.startTime.slice(0, 16) : '',
     minParticipants: round.minParticipants,
+    breakDuration: round.breakDuration,
   }
   actionError.value = ''
   dialog.value = true
@@ -96,6 +99,7 @@ async function save() {
       duration: form.value.duration,
       startTime: form.value.startTime || undefined,
       minParticipants: form.value.minParticipants,
+      breakDuration: form.value.breakDuration,
     }
     if (editingRound.value) {
       await $fetch(`/api/events/${eventId}/rounds/${editingRound.value.id}`, { method: 'PUT', body })
@@ -242,6 +246,12 @@ async function confirmDelete() {
             type="number"
             min="1"
             class="mb-2"
+          />
+          <v-text-field
+            v-model.number="form.breakDuration"
+            label="Break between slots (minutes)"
+            type="number"
+            min="0"
           />
         </v-card-text>
         <v-card-actions>

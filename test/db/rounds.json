@@ -6,6 +6,7 @@
     "duration": 75,
     "startTime": "2026-06-01T09:00:00.000Z",
     "minParticipants": 1,
+    "breakDuration": 15,
     "status": "draft"
   },
   {
@@ -15,6 +16,7 @@
     "duration": 60,
     "startTime": "2026-06-01T14:00:00.000Z",
     "minParticipants": 3,
+    "breakDuration": 15,
     "status": "assigned"
   }
 ]
