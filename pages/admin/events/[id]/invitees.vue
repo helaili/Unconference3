@@ -221,19 +221,10 @@ async function deleteInvitee() {
 
 <template>
   <v-container>
-    <v-btn
-      variant="text"
-      :to="'/admin/events'"
-      prepend-icon="mdi-arrow-left"
-      class="mb-4"
-    >
-      Back to Events
-    </v-btn>
+    <AdminEventNav />
 
     <div class="d-flex align-center justify-space-between mb-4">
-      <h1 class="text-h4">
-        Invitees — {{ event?.name ?? 'Loading...' }}
-      </h1>
+      <h2 class="text-h6">Invitees</h2>
 
       <div class="d-flex ga-2">
         <v-btn

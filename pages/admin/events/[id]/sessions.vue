@@ -206,19 +206,10 @@ async function confirmDelete() {
 
 <template>
   <v-container>
-    <v-btn
-      variant="text"
-      to="/admin/events"
-      prepend-icon="mdi-arrow-left"
-      class="mb-4"
-    >
-      Back to Events
-    </v-btn>
+    <AdminEventNav />
 
     <div class="d-flex align-center justify-space-between mb-4">
-      <h1 class="text-h4">
-        Sessions — {{ eventInfo?.name ?? 'Loading...' }}
-      </h1>
+      <h2 class="text-h6">Sessions</h2>
       <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">
         Create Session
       </v-btn>
