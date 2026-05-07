@@ -233,6 +233,26 @@ async function runAssignment() {
   }
 }
 
+// ── Reset ─────────────────────────────────────────────────────────────────────
+
+const resetDialog = ref(false)
+const resetting = ref(false)
+const resetError = ref('')
+
+async function confirmReset() {
+  resetting.value = true
+  resetError.value = ''
+  try {
+    await $fetch(`/api/events/${eventId}/rounds/${roundId}/reset`, { method: 'POST' })
+    resetDialog.value = false
+    await refresh()
+  } catch (err: unknown) {
+    resetError.value = (err as { data?: { message?: string } })?.data?.message ?? 'Reset failed'
+  } finally {
+    resetting.value = false
+  }
+}
+
 // ── Status transitions ────────────────────────────────────────────────────────
 
 const updatingStatus = ref(false)
@@ -393,6 +413,16 @@ function toggleSession(sessionId: string) {
             @click="setStatus('closed')"
           >
             Close Round
+          </v-btn>
+          <v-btn
+            v-if="round.status !== 'draft'"
+            color="error"
+            variant="outlined"
+            prepend-icon="mdi-refresh"
+            size="small"
+            @click="resetDialog = true"
+          >
+            Reset
           </v-btn>
         </div>
       </div>
@@ -722,6 +752,27 @@ function toggleSession(sessionId: string) {
           <v-spacer />
           <v-btn variant="text" :disabled="savingSettings" @click="settingsDialog = false">Cancel</v-btn>
           <v-btn color="deep-purple" :loading="savingSettings" @click="saveSettings">Save</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Reset Confirmation Dialog -->
+    <v-dialog v-model="resetDialog" max-width="460" persistent>
+      <v-card>
+        <v-card-title>Reset Round</v-card-title>
+        <v-card-text>
+          <v-alert v-if="resetError" type="error" variant="tonal" class="mb-3" closable @click:close="resetError = ''">
+            {{ resetError }}
+          </v-alert>
+          This will permanently delete all slot assignments, participant registrations, and enabled room selections for
+          <strong>{{ roundName(round!) }}</strong>, and set its status back to <strong>draft</strong>.
+          <br /><br />
+          This cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="resetting" @click="resetDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="resetting" @click="confirmReset">Reset Round</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
