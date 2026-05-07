@@ -93,13 +93,13 @@ describe('Rooms Endpoints', async () => {
   // ─── POST /rooms (create) ────────────────────────────────────────────────
 
   describe('POST /api/events/[eventId]/rooms', () => {
-    it('returns 403 for unauthenticated request', async () => {
+    it('returns 401 for unauthenticated request', async () => {
       const res = await fetch(BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'New Room', maxCapacity: 10, type: 'meeting' }),
       })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(401)
     })
 
     it('returns 403 for non-admin user', async () => {
@@ -161,13 +161,13 @@ describe('Rooms Endpoints', async () => {
   // ─── PUT /rooms/[roomId] (update) ────────────────────────────────────────
 
   describe('PUT /api/events/[eventId]/rooms/[roomId]', () => {
-    it('returns 403 for unauthenticated request', async () => {
+    it('returns 401 for unauthenticated request', async () => {
       const res = await fetch(`${BASE}/${TEST_ROOM_MEETING_1_ID}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Updated' }),
       })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(401)
     })
 
     it('returns 403 for non-admin user', async () => {
@@ -217,9 +217,9 @@ describe('Rooms Endpoints', async () => {
   // ─── DELETE /rooms/[roomId] ──────────────────────────────────────────────
 
   describe('DELETE /api/events/[eventId]/rooms/[roomId]', () => {
-    it('returns 403 for unauthenticated request', async () => {
+    it('returns 401 for unauthenticated request', async () => {
       const res = await fetch(`${BASE}/${TEST_ROOM_MEETING_1_ID}`, { method: 'DELETE' })
-      expect(res.status).toBe(403)
+      expect(res.status).toBe(401)
     })
 
     it('returns 403 for non-admin user', async () => {

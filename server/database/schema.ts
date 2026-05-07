@@ -50,6 +50,7 @@ export const eventsRelations = relations(events, ({ many }) => ({
   sessions: many(sessions),
   rooms: many(rooms),
   sessionStars: many(sessionStars),
+  rounds: many(rounds),
 }))
 
 // ── Invitees ────────────────────────────────────────────────────────────────
@@ -155,6 +156,7 @@ export const sessionsRelations = relations(sessions, ({ one, many }) => ({
   event: one(events, { fields: [sessions.eventId], references: [events.id] }),
   author: one(users, { fields: [sessions.authorId], references: [users.id] }),
   stars: many(sessionStars),
+  slots: many(slots),
 }))
 
 // ── Session Stars ─────────────────────────────────────────────────────────────
@@ -181,6 +183,11 @@ export const sessionStarsRelations = relations(sessionStars, ({ one }) => ({
   event: one(events, { fields: [sessionStars.eventId], references: [events.id] }),
 }))
 
+// ── Round status ──────────────────────────────────────────────────────────────
+export const roundStatusValues = ['draft', 'assigned', 'open', 'closed'] as const
+export type RoundStatus = (typeof roundStatusValues)[number]
+export const roundStatusEnum = pgEnum('round_status', roundStatusValues)
+
 // ── Rooms ─────────────────────────────────────────────────────────────────────
 export const rooms = pgTable('rooms', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -195,6 +202,95 @@ export const rooms = pgTable('rooms', {
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })
 
-export const roomsRelations = relations(rooms, ({ one }) => ({
+export const roomsRelations = relations(rooms, ({ one, many }) => ({
   event: one(events, { fields: [rooms.eventId], references: [events.id] }),
+  roundRooms: many(roundRooms),
+}))
+
+// ── Rounds ────────────────────────────────────────────────────────────────────
+export const rounds = pgTable('rounds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }),
+  duration: integer('duration').notNull(),
+  startTime: timestamp('start_time', { mode: 'date' }),
+  minParticipants: integer('min_participants').notNull().default(1),
+  breakDuration: integer('break_duration').notNull().default(15),
+  status: roundStatusEnum('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+})
+
+export const roundsRelations = relations(rounds, ({ one, many }) => ({
+  event: one(events, { fields: [rounds.eventId], references: [events.id] }),
+  roundRooms: many(roundRooms),
+  slots: many(slots),
+}))
+
+// ── Round Rooms (join: rooms enabled for a round) ─────────────────────────────
+export const roundRooms = pgTable(
+  'round_rooms',
+  {
+    roundId: uuid('round_id')
+      .notNull()
+      .references(() => rounds.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.roundId, t.roomId] })],
+)
+
+export const roundRoomsRelations = relations(roundRooms, ({ one }) => ({
+  round: one(rounds, { fields: [roundRooms.roundId], references: [rounds.id] }),
+  room: one(rooms, { fields: [roundRooms.roomId], references: [rooms.id] }),
+}))
+
+// ── Slots (room × time-position within a round) ───────────────────────────────
+export const slots = pgTable(
+  'slots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roundId: uuid('round_id')
+      .notNull()
+      .references(() => rounds.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    sessionId: uuid('session_id').references(() => sessions.id, {
+      onDelete: 'set null',
+    }),
+    slotIndex: integer('slot_index').notNull(),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [unique().on(t.roundId, t.roomId, t.slotIndex)],
+)
+
+export const slotsRelations = relations(slots, ({ one, many }) => ({
+  round: one(rounds, { fields: [slots.roundId], references: [rounds.id] }),
+  room: one(rooms, { fields: [slots.roomId], references: [rooms.id] }),
+  session: one(sessions, { fields: [slots.sessionId], references: [sessions.id] }),
+  registrations: many(slotRegistrations),
+}))
+
+// ── Slot Registrations (participant assigned to a slot) ───────────────────────
+export const slotRegistrations = pgTable(
+  'slot_registrations',
+  {
+    slotId: uuid('slot_id')
+      .notNull()
+      .references(() => slots.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.slotId, t.userId] })],
+)
+
+export const slotRegistrationsRelations = relations(slotRegistrations, ({ one }) => ({
+  slot: one(slots, { fields: [slotRegistrations.slotId], references: [slots.id] }),
+  user: one(users, { fields: [slotRegistrations.userId], references: [users.id] }),
 }))

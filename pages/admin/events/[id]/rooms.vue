@@ -151,16 +151,10 @@ async function confirmDelete() {
 
 <template>
   <div>
+    <AdminEventNav />
+
     <div class="d-flex align-center justify-space-between mb-4">
-      <div>
-        <v-btn variant="text" prepend-icon="mdi-arrow-left" :to="`/admin/events`" class="mb-1">
-          Back to Events
-        </v-btn>
-        <h1 class="text-h4">
-          Rooms
-          <span v-if="eventInfo" class="text-h5 text-medium-emphasis ml-2">— {{ eventInfo.name }}</span>
-        </h1>
-      </div>
+      <h2 class="text-h6">Rooms</h2>
       <v-btn color="deep-purple" prepend-icon="mdi-plus" @click="openCreate">
         Add Room
       </v-btn>

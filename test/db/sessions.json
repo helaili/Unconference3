@@ -161,5 +161,15 @@
     "description": "Measuring and cutting the energy use of software — carbon-aware scheduling, efficient data access patterns, and more.",
     "tags": ["sustainability", "greentech", "performance"],
     "status": "delivered"
+  },
+  {
+    "id": "d0000000-0000-0000-0000-000000000019",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "authorId": "b0000000-0000-0000-0000-000000000027",
+    "title": "Advanced TypeScript Patterns",
+    "description": "Hands-on exploration of mapped types, conditional types, template literal types, and inference tricks that make TypeScript truly shine.",
+    "tags": ["typescript", "patterns", "workshop"],
+    "status": "published",
+    "type": "workshop"
   }
 ]
