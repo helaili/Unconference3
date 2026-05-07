@@ -252,6 +252,16 @@ function slotDuration(r: RoundDetail): number {
   return r.duration
 }
 
+// Total unique participants registered in this round
+const totalParticipants = computed<number>(() => {
+  if (!round.value?.slots) return 0
+  const ids = new Set<string>()
+  for (const slot of round.value.slots) {
+    for (const reg of slot.registrations) ids.add(reg.userId)
+  }
+  return ids.size
+})
+
 // ── Expanded session detail ───────────────────────────────────────────────────
 const expandedSession = ref<string | null>(null)
 function toggleSession(sessionId: string) {
@@ -345,6 +355,9 @@ function toggleSession(sessionId: string) {
         </v-chip>
         <v-chip prepend-icon="mdi-account-check-outline" variant="tonal" color="blue">
           Min {{ round.minParticipants }} participants
+        </v-chip>
+        <v-chip prepend-icon="mdi-account-multiple" variant="tonal" color="indigo">
+          {{ totalParticipants }} registered
         </v-chip>
         <v-chip v-if="round.startTime" prepend-icon="mdi-calendar-clock" variant="tonal" color="teal">
           {{
