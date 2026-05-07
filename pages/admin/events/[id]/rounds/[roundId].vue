@@ -280,18 +280,35 @@ const totalParticipants = computed<number>(() => {
   return ids.size
 })
 
-// Accepted invitees whose email doesn't appear in any slot registration
+// Accepted invitees who are NOT fully covered for the round.
+// A participant is fully covered when:
+//   - they have a registration in a workshop session (workshops span the whole round), OR
+//   - they have a discussion registration at every slot index in the round.
 const unassignedParticipants = computed<InviteeItem[]>(() => {
   if (!allInvitees.value || !round.value) return []
-  const registeredEmails = new Set<string>()
+
+  const allSlotIndices = [...new Set(round.value.slots.map((s) => s.slotIndex))]
+
+  // Build coverage per user: tracked by email (invitees have no userId)
+  const coverage = new Map<string, { slotIndices: Set<number>; hasWorkshop: boolean }>()
   for (const slot of round.value.slots) {
-    for (const reg of slot.registrations) registeredEmails.add(reg.user.email)
+    for (const reg of slot.registrations) {
+      if (!coverage.has(reg.user.email)) {
+        coverage.set(reg.user.email, { slotIndices: new Set(), hasWorkshop: false })
+      }
+      const c = coverage.get(reg.user.email)!
+      c.slotIndices.add(slot.slotIndex)
+      if (slot.session?.type === 'workshop') c.hasWorkshop = true
+    }
   }
-  return allInvitees.value.filter(
-    (inv) =>
-      inv.invitations.some((i) => i.usedAt !== null) &&
-      !registeredEmails.has(inv.email),
-  )
+
+  return allInvitees.value.filter((inv) => {
+    if (!inv.invitations.some((i) => i.usedAt !== null)) return false // not accepted
+    const c = coverage.get(inv.email)
+    if (!c) return true // no registrations at all
+    if (c.hasWorkshop) return false // workshop covers the whole round
+    return !allSlotIndices.every((idx) => c.slotIndices.has(idx)) // gap in discussions
+  })
 })
 
 // ── Expanded session detail ───────────────────────────────────────────────────
