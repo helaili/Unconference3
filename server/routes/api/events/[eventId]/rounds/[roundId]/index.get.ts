@@ -1,5 +1,5 @@
-import { eq, and } from 'drizzle-orm'
-import { rounds, roundRooms, rooms, slots } from '~/server/database/schema'
+import { eq, and, inArray, sql } from 'drizzle-orm'
+import { rounds, roundRooms, rooms, slots, sessionStars } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
@@ -36,9 +36,26 @@ export default defineEventHandler(async (event) => {
     orderBy: [slots.slotIndex, slots.roomId],
   })
 
+  // Compute star counts for sessions referenced in these slots
+  const sessionIds = [...new Set(roundSlots.map((s) => s.sessionId).filter((id): id is string => id !== null))]
+  const starCounts = sessionIds.length > 0
+    ? await db
+        .select({
+          sessionId: sessionStars.sessionId,
+          count: sql<number>`count(*)::int`.as('star_count'),
+        })
+        .from(sessionStars)
+        .where(inArray(sessionStars.sessionId, sessionIds))
+        .groupBy(sessionStars.sessionId)
+    : []
+  const starCountMap = new Map(starCounts.map((r) => [r.sessionId, r.count]))
+
   return {
     ...round,
     enabledRooms: enabledRooms.map((r) => r.room),
-    slots: roundSlots,
+    slots: roundSlots.map((slot) => ({
+      ...slot,
+      session: slot.session ? { ...slot.session, starCount: starCountMap.get(slot.session.id) ?? 0 } : null,
+    })),
   }
 })
