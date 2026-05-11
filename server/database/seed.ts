@@ -1,9 +1,9 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
+import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import postgres from 'postgres'
 import { readFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createConsola } from 'consola'
 import * as schema from './schema'
 
@@ -16,13 +16,8 @@ function loadJson(filename: string) {
   return JSON.parse(readFileSync(path, 'utf-8'))
 }
 
-const client = postgres(process.env.DATABASE_URL!)
-const db = drizzle(client, { schema })
-
-async function seed() {
+export async function seedData(db: PostgresJsDatabase<typeof schema>) {
   logger.info('Seeding database...')
-
-  await migrate(db, { migrationsFolder: resolve(__dirname, '../../drizzle') })
 
   await db.insert(schema.events).values(
     loadJson('events.json').map((e: Record<string, unknown>) => ({ ...e, date: new Date(e.date as string) })),
@@ -74,10 +69,21 @@ async function seed() {
   }
 
   logger.success('Seeding complete!')
-  await client.end()
 }
 
-seed().catch((err) => {
-  logger.error('Seeding failed:', err)
-  process.exit(1)
-})
+// CLI entry point — only runs when executed directly, not when imported
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const client = postgres(process.env.DATABASE_URL!)
+  ;(async () => {
+    try {
+      const db = drizzle(client, { schema })
+      await migrate(db, { migrationsFolder: resolve(__dirname, '../../drizzle') })
+      await seedData(db)
+    } finally {
+      await client.end()
+    }
+  })().catch((err) => {
+    logger.error('Seeding failed:', err)
+    process.exit(1)
+  })
+}

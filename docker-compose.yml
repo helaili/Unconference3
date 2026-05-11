@@ -11,8 +11,6 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./drizzle:/drizzle:ro
       - ./docker/initdb/01-migrate.sh:/docker-entrypoint-initdb.d/01-migrate.sh:ro
-      - ./test/db:/testdata:ro
-      - ./docker/initdb/02-seed.sh:/docker-entrypoint-initdb.d/02-seed.sh:ro
 
 volumes:
   pgdata:
