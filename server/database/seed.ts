@@ -24,51 +24,58 @@ async function seed() {
 
   await migrate(db, { migrationsFolder: resolve(__dirname, '../../drizzle') })
 
-  await db.insert(schema.events).values(
-    loadJson('events.json').map((e: Record<string, unknown>) => ({ ...e, date: new Date(e.date as string) })),
-  )
+  await db
+    .insert(schema.events)
+    .values(loadJson('events.json').map((e: Record<string, unknown>) => ({ ...e, date: new Date(e.date as string) })))
+    .onConflictDoNothing()
 
-  await db.insert(schema.users).values(loadJson('users.json'))
+  await db.insert(schema.users).values(loadJson('users.json')).onConflictDoNothing()
 
-  await db.insert(schema.invitees).values(loadJson('invitees.json'))
+  await db.insert(schema.invitees).values(loadJson('invitees.json')).onConflictDoNothing()
 
-  await db.insert(schema.invitations).values(
-    loadJson('invitations.json').map((i: Record<string, unknown>) => ({
-      ...i,
-      expiresAt: new Date(i.expiresAt as string),
-      ...(i.usedAt ? { usedAt: new Date(i.usedAt as string) } : {}),
-    })),
-  )
+  await db
+    .insert(schema.invitations)
+    .values(
+      loadJson('invitations.json').map((i: Record<string, unknown>) => ({
+        ...i,
+        expiresAt: new Date(i.expiresAt as string),
+        ...(i.usedAt ? { usedAt: new Date(i.usedAt as string) } : {}),
+      })),
+    )
+    .onConflictDoNothing()
 
-  await db.insert(schema.userEvents).values(loadJson('user-events.json'))
+  await db.insert(schema.userEvents).values(loadJson('user-events.json')).onConflictDoNothing()
 
-  await db.insert(schema.sessions).values(loadJson('sessions.json'))
+  await db.insert(schema.sessions).values(loadJson('sessions.json')).onConflictDoNothing()
 
-  await db.insert(schema.sessionStars).values(loadJson('session-stars.json'))
+  await db.insert(schema.sessionStars).values(loadJson('session-stars.json')).onConflictDoNothing()
 
-  await db.insert(schema.rooms).values(loadJson('rooms.json'))
+  await db.insert(schema.rooms).values(loadJson('rooms.json')).onConflictDoNothing()
 
   const roundsData = loadJson('rounds.json')
   if (roundsData.length > 0) {
-    await db.insert(schema.rounds).values(
-      roundsData.map((r: Record<string, unknown>) => ({
-        ...r,
-        ...(r.startTime ? { startTime: new Date(r.startTime as string) } : {}),
-      })),
-    )
+    await db
+      .insert(schema.rounds)
+      .values(
+        roundsData.map((r: Record<string, unknown>) => ({
+          ...r,
+          ...(r.startTime ? { startTime: new Date(r.startTime as string) } : {}),
+        })),
+      )
+      .onConflictDoNothing()
 
     const roundRoomsData = loadJson('round-rooms.json')
     if (roundRoomsData.length > 0) {
-      await db.insert(schema.roundRooms).values(roundRoomsData)
+      await db.insert(schema.roundRooms).values(roundRoomsData).onConflictDoNothing()
     }
 
     const slotsData = loadJson('slots.json')
     if (slotsData.length > 0) {
-      await db.insert(schema.slots).values(slotsData)
+      await db.insert(schema.slots).values(slotsData).onConflictDoNothing()
 
       const slotRegistrationsData = loadJson('slot-registrations.json')
       if (slotRegistrationsData.length > 0) {
-        await db.insert(schema.slotRegistrations).values(slotRegistrationsData)
+        await db.insert(schema.slotRegistrations).values(slotRegistrationsData).onConflictDoNothing()
       }
     }
   }

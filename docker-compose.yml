@@ -11,8 +11,28 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./drizzle:/drizzle:ro
       - ./docker/initdb/01-migrate.sh:/docker-entrypoint-initdb.d/01-migrate.sh:ro
-      - ./test/db:/testdata:ro
-      - ./docker/initdb/02-seed.sh:/docker-entrypoint-initdb.d/02-seed.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d unconference"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  seeder:
+    build:
+      context: .
+      dockerfile: docker/seeder/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./server:/app/server:ro
+      - ./test/db:/app/test/db:ro
+      - ./drizzle:/app/drizzle:ro
+    command: npx tsx server/database/seed.ts
+    environment:
+      DATABASE_URL: postgresql://user:pass@db:5432/unconference
+    restart: "no"
 
 volumes:
   pgdata:
