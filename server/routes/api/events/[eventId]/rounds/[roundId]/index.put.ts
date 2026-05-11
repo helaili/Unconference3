@@ -44,9 +44,9 @@ export default defineEventHandler(async (event) => {
     body.minParticipants !== undefined &&
     (typeof body.minParticipants !== 'number' ||
       !Number.isInteger(body.minParticipants) ||
-      body.minParticipants < 1)
+      body.minParticipants < 0)
   ) {
-    throw createError({ statusCode: 400, statusMessage: 'minParticipants must be a positive integer' })
+    throw createError({ statusCode: 400, statusMessage: 'minParticipants must be a non-negative integer' })
   }
 
   if (

@@ -104,6 +104,15 @@ describe('Rounds Endpoints', async () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 when minParticipants is negative', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ duration: 60, minParticipants: -1 }),
+      })
+      expect(res.status).toBe(400)
+    })
+
     it('creates a round successfully and returns it', async () => {
       const res = await fetch(BASE, {
         method: 'POST',
@@ -335,7 +344,7 @@ describe('Rounds Endpoints', async () => {
       const create = await fetch(BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
-        body: JSON.stringify({ duration: 75, minParticipants: 1 }),
+        body: JSON.stringify({ duration: 75, minParticipants: 0 }),
       })
       const { id } = await create.json()
 
