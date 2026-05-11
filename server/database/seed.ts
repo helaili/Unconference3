@@ -44,7 +44,34 @@ async function seed() {
 
   await db.insert(schema.sessions).values(loadJson('sessions.json'))
 
+  await db.insert(schema.sessionStars).values(loadJson('session-stars.json'))
+
   await db.insert(schema.rooms).values(loadJson('rooms.json'))
+
+  const roundsData = loadJson('rounds.json')
+  if (roundsData.length > 0) {
+    await db.insert(schema.rounds).values(
+      roundsData.map((r: Record<string, unknown>) => ({
+        ...r,
+        ...(r.startTime ? { startTime: new Date(r.startTime as string) } : {}),
+      })),
+    )
+
+    const roundRoomsData = loadJson('round-rooms.json')
+    if (roundRoomsData.length > 0) {
+      await db.insert(schema.roundRooms).values(roundRoomsData)
+    }
+
+    const slotsData = loadJson('slots.json')
+    if (slotsData.length > 0) {
+      await db.insert(schema.slots).values(slotsData)
+
+      const slotRegistrationsData = loadJson('slot-registrations.json')
+      if (slotRegistrationsData.length > 0) {
+        await db.insert(schema.slotRegistrations).values(slotRegistrationsData)
+      }
+    }
+  }
 
   logger.success('Seeding complete!')
   await client.end()
