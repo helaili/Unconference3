@@ -107,6 +107,17 @@ test so later tests are unaffected.
 New utility functions under `server/utils/` should have a matching unit test in
 `test/unit/`. Unit tests run in plain Node — no database or Nuxt server needed.
 
+## Seed Data Sync
+
+`server/database/seed.ts` and `docker/initdb/02-seed.sh` must always import the same tables from the same `test/db/*.json` files. Whenever you add or remove a table from the seed data:
+
+1. Update `server/database/seed.ts` to add/remove the corresponding `db.insert(...)` call.
+2. Update `docker/initdb/02-seed.sh` to:
+   - Add/remove the `-v <table>="$(cat /testdata/<file>.json)"` variable in the `psql` invocation.
+   - Add/remove the corresponding `INSERT INTO ... SELECT ... FROM json_to_recordset(:'<table>'::json)` block.
+
+Both files must stay in sync at all times.
+
 ## Data Model Changes
 
 Whenever you change `server/database/schema.ts`, you **must** do all three of the following:
