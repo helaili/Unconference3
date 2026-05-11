@@ -10,7 +10,12 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v invitations="$(cat /testdata/invitations.json)" \
   -v user_events="$(cat /testdata/user-events.json)" \
   -v sessions="$(cat /testdata/sessions.json)" \
+  -v session_stars="$(cat /testdata/session-stars.json)" \
   -v rooms="$(cat /testdata/rooms.json)" \
+  -v rounds="$(cat /testdata/rounds.json)" \
+  -v round_rooms="$(cat /testdata/round-rooms.json)" \
+  -v slots="$(cat /testdata/slots.json)" \
+  -v slot_registrations="$(cat /testdata/slot-registrations.json)" \
   <<'EOSQL'
 
 INSERT INTO events (id, name, description, date, submission_restricted, min_stars, max_stars, default_discussion_duration, default_workshop_duration)
@@ -62,6 +67,39 @@ SELECT id, "eventId", name, description, "maxCapacity", type::room_type
 FROM json_to_recordset(:'rooms'::json)
   AS x(id uuid, "eventId" uuid, name varchar, description text, "maxCapacity" integer, type varchar)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO session_stars (user_id, session_id, event_id)
+SELECT "userId", "sessionId", "eventId"
+FROM json_to_recordset(:'session_stars'::json)
+  AS x("userId" uuid, "sessionId" uuid, "eventId" uuid)
+ON CONFLICT (user_id, session_id) DO NOTHING;
+
+INSERT INTO rounds (id, event_id, name, duration, start_time, min_participants, break_duration, status)
+SELECT id, "eventId", name, duration, "startTime",
+  COALESCE("minParticipants", 1),
+  COALESCE("breakDuration", 15),
+  COALESCE(status, 'draft')::round_status
+FROM json_to_recordset(:'rounds'::json)
+  AS x(id uuid, "eventId" uuid, name varchar, duration integer, "startTime" timestamp, "minParticipants" integer, "breakDuration" integer, status varchar)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO round_rooms (round_id, room_id)
+SELECT "roundId", "roomId"
+FROM json_to_recordset(:'round_rooms'::json)
+  AS x("roundId" uuid, "roomId" uuid)
+ON CONFLICT (round_id, room_id) DO NOTHING;
+
+INSERT INTO slots (id, round_id, room_id, session_id, slot_index)
+SELECT id, "roundId", "roomId", "sessionId", "slotIndex"
+FROM json_to_recordset(:'slots'::json)
+  AS x(id uuid, "roundId" uuid, "roomId" uuid, "sessionId" uuid, "slotIndex" integer)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO slot_registrations (slot_id, user_id)
+SELECT "slotId", "userId"
+FROM json_to_recordset(:'slot_registrations'::json)
+  AS x("slotId" uuid, "userId" uuid)
+ON CONFLICT (slot_id, user_id) DO NOTHING;
 
 EOSQL
 
