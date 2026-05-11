@@ -104,6 +104,15 @@ describe('Rounds Endpoints', async () => {
       expect(res.status).toBe(400)
     })
 
+    it('returns 400 when minParticipants is negative', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ duration: 60, minParticipants: -1 }),
+      })
+      expect(res.status).toBe(400)
+    })
+
     it('creates a round successfully and returns it', async () => {
       const res = await fetch(BASE, {
         method: 'POST',
@@ -335,7 +344,7 @@ describe('Rounds Endpoints', async () => {
       const create = await fetch(BASE, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
-        body: JSON.stringify({ duration: 75, minParticipants: 1 }),
+        body: JSON.stringify({ duration: 75, minParticipants: 0 }),
       })
       const { id } = await create.json()
 
@@ -347,10 +356,15 @@ describe('Rounds Endpoints', async () => {
       const body = await assign.json()
       expect(body.status).toBe('assigned')
 
-      // Verify slots were created
+      // Verify slots were created with sessions and participants assigned
       const detail = await fetch(`${BASE}/${id}`, { headers: { Cookie: adminCookies } })
       const detailBody = await detail.json()
       expect(detailBody.slots.length).toBeGreaterThan(0)
+      const assignedSlots = detailBody.slots.filter((s: { sessionId: string | null }) => s.sessionId !== null)
+      expect(assignedSlots.length).toBeGreaterThan(0)
+      expect(typeof assignedSlots[0].session.starCount).toBe('number')
+      const slotsWithParticipants = detailBody.slots.filter((s: { registrations: unknown[] }) => s.registrations.length > 0)
+      expect(slotsWithParticipants.length).toBeGreaterThan(0)
 
       await fetch(`${BASE}/${id}`, { method: 'DELETE', headers: { Cookie: adminCookies } })
     })
