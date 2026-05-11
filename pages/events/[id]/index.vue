@@ -6,6 +6,7 @@ const eventId = route.params.id as string
 
 type SessionStatus = 'proposed' | 'published' | 'scheduled' | 'delivered'
 type SessionType = 'discussion' | 'workshop'
+type RoundStatus = 'draft' | 'assigned' | 'open' | 'closed'
 
 interface SessionItem {
   id: string
@@ -34,6 +35,51 @@ interface EventInfo {
   defaultDiscussionDuration: number
   defaultWorkshopDuration: number
   submissionRestricted: boolean
+}
+
+// ── Round / booking grid types ────────────────────────────────────────────────
+interface RoundItem {
+  id: string
+  name: string | null
+  duration: number
+  startTime: string | null
+  breakDuration: number
+  status: RoundStatus
+}
+
+interface RoomItem {
+  id: string
+  name: string
+  maxCapacity: number
+  type: string
+}
+
+interface SlotRegistration {
+  slotId: string
+  userId: string
+}
+
+interface ScheduleSession {
+  id: string
+  title: string
+  type: SessionType
+  duration: number | null
+}
+
+interface SlotItem {
+  id: string
+  roundId: string
+  roomId: string
+  sessionId: string | null
+  slotIndex: number
+  session: ScheduleSession | null
+  room: RoomItem
+  registrations: SlotRegistration[]
+}
+
+interface RoundDetail extends RoundItem {
+  enabledRooms: RoomItem[]
+  slots: SlotItem[]
 }
 
 const statusColors: Record<SessionStatus, string> = {
@@ -186,6 +232,63 @@ async function submitEdit() {
   }
 }
 
+// ── Booking grid ──────────────────────────────────────────────────────────────
+const { data: allRounds } = useFetch<RoundItem[]>(`/api/events/${eventId}/rounds`)
+
+const openRounds = computed(() => allRounds.value?.filter(r => r.status === 'open') ?? [])
+
+const openRoundDetails = ref<RoundDetail[]>([])
+
+watch(openRounds, async (rounds, _old, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => { cancelled = true })
+  try {
+    const details = await Promise.all(
+      rounds.map(r => $fetch<RoundDetail>(`/api/events/${eventId}/rounds/${r.id}`)),
+    )
+    if (!cancelled) openRoundDetails.value = details
+  } catch {
+    if (!cancelled) bookingError.value = 'Failed to load booking schedule'
+  }
+}, { immediate: true })
+
+function slotIndicesFor(rd: RoundDetail): number[] {
+  return [...new Set(rd.slots.map(s => s.slotIndex))].sort((a, b) => a - b)
+}
+
+function slotFor(rd: RoundDetail, roomId: string, idx: number): SlotItem | undefined {
+  return rd.slots.find(s => s.roomId === roomId && s.slotIndex === idx)
+}
+
+function isMySlot(slot: SlotItem | undefined): boolean {
+  if (!slot) return false
+  const dbId = user.value?.dbId
+  return !!dbId && slot.registrations.some(r => r.userId === dbId)
+}
+
+function seatsLeft(slot: SlotItem | undefined): number {
+  if (!slot) return 0
+  return Math.max(0, slot.room.maxCapacity - slot.registrations.length)
+}
+
+const bookingSlotId = ref<string | null>(null)
+const bookingError = ref('')
+
+async function bookSession(roundId: string, slotId: string) {
+  bookingSlotId.value = slotId
+  bookingError.value = ''
+  try {
+    await $fetch(`/api/events/${eventId}/rounds/${roundId}/slots/${slotId}/book`, { method: 'POST' })
+    const updated = await $fetch<RoundDetail>(`/api/events/${eventId}/rounds/${roundId}`)
+    const idx = openRoundDetails.value.findIndex(r => r.id === roundId)
+    if (idx >= 0) openRoundDetails.value[idx] = updated
+  } catch (err: unknown) {
+    bookingError.value = (err as { data?: { message?: string } })?.data?.message ?? 'Failed to book session'
+  } finally {
+    bookingSlotId.value = null
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function isMySession(session: SessionItem) {
   return !!user.value?.dbId && session.authorId === user.value.dbId
@@ -319,6 +422,135 @@ function effectiveDuration(session: SessionItem): string {
     >
       {{ starError }}
     </v-alert>
+
+    <!-- ── Booking grid (open rounds) ──────────────────────────────────────── -->
+    <template v-if="openRoundDetails.length > 0">
+      <v-divider class="my-6" />
+      <h2 class="text-h5 mb-2">
+        <v-icon start color="primary">mdi-calendar-check</v-icon>
+        Schedule — Book Your Sessions
+      </h2>
+
+      <v-alert
+        v-if="bookingError"
+        type="error"
+        variant="tonal"
+        class="mb-4"
+        closable
+        @click:close="bookingError = ''"
+      >
+        {{ bookingError }}
+      </v-alert>
+
+      <div v-for="rd in openRoundDetails" :key="rd.id" class="mb-8">
+        <div class="d-flex align-center ga-3 mb-3">
+          <h3 class="text-h6">{{ rd.name ?? 'Round' }}</h3>
+          <v-chip color="green" size="small" variant="tonal">Open for booking</v-chip>
+          <span v-if="rd.startTime" class="text-body-2 text-medium-emphasis">
+            {{ new Date(rd.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+          </span>
+        </div>
+
+        <v-table class="rounded border" density="compact">
+          <thead>
+            <tr>
+              <th class="text-left pa-3 bg-surface-variant" style="min-width:90px">Slot</th>
+              <th
+                v-for="room in rd.enabledRooms"
+                :key="room.id"
+                class="text-left pa-3 bg-surface-variant"
+                style="min-width:220px"
+              >
+                {{ room.name }}
+                <span class="text-caption text-medium-emphasis d-block">max {{ room.maxCapacity }}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="idx in slotIndicesFor(rd)" :key="idx">
+              <td class="pa-3 text-body-2 font-weight-medium text-medium-emphasis">
+                #{{ idx + 1 }}
+              </td>
+              <td
+                v-for="room in rd.enabledRooms"
+                :key="room.id"
+                class="pa-2"
+                :class="{ 'bg-primary-lighten-5': isMySlot(slotFor(rd, room.id, idx)) }"
+                style="vertical-align: top"
+              >
+                <template v-if="slotFor(rd, room.id, idx)?.session">
+                  <div
+                    :class="[
+                      'rounded pa-2',
+                      isMySlot(slotFor(rd, room.id, idx))
+                        ? 'border border-primary'
+                        : 'border',
+                    ]"
+                  >
+                    <!-- Session title -->
+                    <div class="d-flex align-center ga-2 mb-1 flex-wrap">
+                      <v-chip
+                        :color="slotFor(rd, room.id, idx)!.session!.type === 'workshop' ? 'orange' : 'teal'"
+                        size="x-small"
+                        variant="tonal"
+                      >
+                        {{ slotFor(rd, room.id, idx)!.session!.type }}
+                      </v-chip>
+                      <span class="text-body-2 font-weight-medium">
+                        {{ slotFor(rd, room.id, idx)!.session!.title }}
+                      </span>
+                    </div>
+
+                    <!-- Capacity row -->
+                    <div class="d-flex align-center ga-2 mb-2">
+                      <v-icon size="x-small" color="grey">mdi-account-group</v-icon>
+                      <span class="text-caption text-medium-emphasis">
+                        {{ slotFor(rd, room.id, idx)!.registrations.length }} / {{ room.maxCapacity }}
+                      </span>
+                      <v-chip
+                        v-if="isMySlot(slotFor(rd, room.id, idx))"
+                        color="primary"
+                        size="x-small"
+                        variant="tonal"
+                        prepend-icon="mdi-check-circle"
+                      >
+                        You're booked
+                      </v-chip>
+                    </div>
+
+                    <!-- Action -->
+                    <v-btn
+                      v-if="!isMySlot(slotFor(rd, room.id, idx)) && seatsLeft(slotFor(rd, room.id, idx)) > 0"
+                      color="primary"
+                      size="x-small"
+                      variant="flat"
+                      :loading="bookingSlotId === slotFor(rd, room.id, idx)!.id"
+                      :disabled="bookingSlotId !== null"
+                      prepend-icon="mdi-calendar-plus"
+                      @click="bookSession(rd.id, slotFor(rd, room.id, idx)!.id)"
+                    >
+                      Book Session
+                    </v-btn>
+                    <v-chip
+                      v-else-if="!isMySlot(slotFor(rd, room.id, idx)) && seatsLeft(slotFor(rd, room.id, idx)) === 0"
+                      color="grey"
+                      size="x-small"
+                      variant="tonal"
+                    >
+                      Fully Booked
+                    </v-chip>
+                  </div>
+                </template>
+                <span v-else class="text-caption text-disabled pa-2 d-block">—</span>
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+      </div>
+
+      <v-divider class="my-6" />
+    </template>
+    <!-- ── End booking grid ─────────────────────────────────────────────────── -->
 
     <div v-if="fetchStatus === 'pending'" class="d-flex flex-column align-center pa-8">
       <v-progress-circular indeterminate color="primary" size="48" class="mb-4" />

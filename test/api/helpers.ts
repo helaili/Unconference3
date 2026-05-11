@@ -157,6 +157,11 @@ export const OUTSIDER_EMAIL = 'test@example.com' // valid user but NOT in the te
 // Round fixture IDs
 export const TEST_ROUND_DRAFT_ID = 'aa000000-0000-0000-0000-000000000001'
 export const TEST_ROUND_ASSIGNED_ID = 'aa000000-0000-0000-0000-000000000002'
+export const TEST_ROUND_OPEN_ID = 'aa000000-0000-0000-0000-000000000003'
+
+// Slot fixture IDs for the open round
+export const TEST_OPEN_SLOT_MEETING1_ID = 'ab000000-0000-0000-0000-000000000010'
+export const TEST_OPEN_SLOT_MEETING2_ID = 'ab000000-0000-0000-0000-000000000011'
 
 /** Login via the API and return the session cookies string */
 export async function loginAs(

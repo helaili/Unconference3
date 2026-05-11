@@ -18,5 +18,15 @@
     "minParticipants": 3,
     "breakDuration": 15,
     "status": "assigned"
+  },
+  {
+    "id": "aa000000-0000-0000-0000-000000000003",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Round 3 - Open Booking",
+    "duration": 30,
+    "startTime": "2026-06-01T16:00:00.000Z",
+    "minParticipants": 1,
+    "breakDuration": 15,
+    "status": "open"
   }
 ]
