@@ -136,9 +136,7 @@ function blockedSlotsFor(
  * Rules:
  *  - Slots are created: countSlots(roundDuration, defaultDuration, breakDuration) per room.
  *  - Sessions are assigned most-popular-first to biggest-room-first.
- *  - A session is duplicated when starCount > top-room capacity AND a spare slot
- *    at a different slotIndex exists.  If no different-index slot exists, both
- *    instances are placed at slotIndex 0 (concurrent rooms).
+ *  - Each session is assigned to exactly one slot (no duplication within a round).
  *  - Remaining slots after all sessions are assigned get sessionId = null.
  */
 export function buildSlotPlan(
@@ -173,19 +171,7 @@ export function buildSlotPlan(
     const session = sessions[sessionIdx]
     const first = remaining.shift()! // biggest available slot
 
-    const shouldDuplicate = session.starCount > first.capacity && remaining.length > 0
-
-    if (shouldDuplicate) {
-      // Prefer a second slot at a DIFFERENT slotIndex
-      const secondPos = remaining.findIndex((s) => s.slotIndex !== first.slotIndex)
-      const usePos = secondPos !== -1 ? secondPos : 0
-      const second = remaining.splice(usePos, 1)[0]
-
-      plan.push({ roomId: first.roomId, slotIndex: first.slotIndex, sessionId: session.id, capacity: first.capacity })
-      plan.push({ roomId: second.roomId, slotIndex: second.slotIndex, sessionId: session.id, capacity: second.capacity })
-    } else {
-      plan.push({ roomId: first.roomId, slotIndex: first.slotIndex, sessionId: session.id, capacity: first.capacity })
-    }
+    plan.push({ roomId: first.roomId, slotIndex: first.slotIndex, sessionId: session.id, capacity: first.capacity })
 
     sessionIdx++
   }

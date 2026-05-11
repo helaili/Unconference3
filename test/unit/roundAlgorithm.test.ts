@@ -167,11 +167,11 @@ describe('buildSlotPlan', () => {
     expect(unassigned).toHaveLength(1)
   })
 
-  it('Scenario 3: duplicates a popular session at a DIFFERENT slotIndex', () => {
+  it('Scenario 3: does NOT duplicate a popular session — assigns it to one slot only', () => {
     // 2 meeting rooms (cap 8), round=75min, discussion=30min → 4 slots (slotIndex 0 and 1 in each room)
     const rooms = [room('R1', 'meeting', 8), room('R2', 'meeting', 8)]
     const sessions = [
-      session('A', 'discussion', 15), // 15 > 8 → duplicate
+      session('A', 'discussion', 15), // 15 > 8, but no duplication
       session('B', 'discussion', 8),
       session('C', 'discussion', 5),
     ]
@@ -180,12 +180,10 @@ describe('buildSlotPlan', () => {
     expect(plan).toHaveLength(4)
 
     const aSlots = plan.filter((s) => s.sessionId === 'A')
-    expect(aSlots).toHaveLength(2)
-    // The two instances must be at DIFFERENT slotIndexes
-    expect(aSlots[0].slotIndex).not.toBe(aSlots[1].slotIndex)
+    expect(aSlots).toHaveLength(1)
   })
 
-  it('fills all 4 slots correctly in Scenario 3 (A twice, B once, C once)', () => {
+  it('fills slots correctly in Scenario 3 (A once, B once, C once, one unassigned)', () => {
     const rooms = [room('R1', 'meeting', 8), room('R2', 'meeting', 8)]
     const sessions = [
       session('A', 'discussion', 15),
@@ -194,21 +192,22 @@ describe('buildSlotPlan', () => {
     ]
     const plan = buildSlotPlan(sessions, rooms, 75, 30)
 
-    const ids = plan.map((s) => s.sessionId).sort()
-    expect(ids).toEqual(['A', 'A', 'B', 'C'])
+    const assignedIds = plan.filter((s) => s.sessionId !== null).map((s) => s.sessionId).sort()
+    expect(assignedIds).toEqual(['A', 'B', 'C'])
+    const unassigned = plan.filter((s) => s.sessionId === null)
+    expect(unassigned).toHaveLength(1)
   })
 
-  it('Scenario 5: duplicated workshop occupies same slotIndex when round = workshop duration', () => {
-    // Both workshop slots are slotIndex 0 → duplicate instances are concurrent
+  it('Scenario 5: popular workshop is assigned to one slot only (no concurrent duplication)', () => {
     const rooms = [room('Hall', 'workshop', 20), room('Annex', 'workshop', 15)]
-    const sessions = [session('W1', 'workshop', 28)] // 28 > 20 → duplicate
+    const sessions = [session('W1', 'workshop', 28)] // 28 > 20, but no duplication
     const plan = buildSlotPlan(sessions, rooms, 75, 75)
 
     expect(plan).toHaveLength(2)
     const w1Slots = plan.filter((s) => s.sessionId === 'W1')
-    expect(w1Slots).toHaveLength(2)
-    // Both at slotIndex 0 (the only slot available)
-    expect(w1Slots.every((s) => s.slotIndex === 0)).toBe(true)
+    expect(w1Slots).toHaveLength(1)
+    const unassigned = plan.filter((s) => s.sessionId === null)
+    expect(unassigned).toHaveLength(1)
   })
 
   it('returns empty plan when no rooms', () => {
@@ -276,12 +275,12 @@ describe('assignParticipants', () => {
   })
 
   it('Scenario 3: splits votes across duplicate session instances', () => {
-    // A duplicated in R1/slot0 and R2/slot1
+    // With no session duplication: A gets one slot with capacity 8
     const slots = [
       { roomId: 'R1', slotIndex: 0, sessionId: 'A', capacity: 8 },
       { roomId: 'R2', slotIndex: 0, sessionId: 'B', capacity: 8 },
       { roomId: 'R1', slotIndex: 1, sessionId: 'C', capacity: 8 },
-      { roomId: 'R2', slotIndex: 1, sessionId: 'A', capacity: 8 },
+      { roomId: 'R2', slotIndex: 1, sessionId: null, capacity: 8 },
     ]
     // 15 voters for A, 5 for B, 5 for C
     const voters: VoterRecord[] = [
@@ -296,13 +295,13 @@ describe('assignParticipants', () => {
     ]
     const result = assignParticipants(slots, voters, sessions)
 
-    // All 15 A-voters should be assigned (8 to instance 1, 7 to instance 2)
+    // A has only one slot (cap 8) — only 8 voters fit
     const aAssigned = result.filter((r) => r.sessionId === 'A')
-    expect(aAssigned).toHaveLength(15)
+    expect(aAssigned).toHaveLength(8)
 
     // No user is assigned to A twice
     const aUserIds = aAssigned.map((r) => r.userId)
-    expect(new Set(aUserIds).size).toBe(15)
+    expect(new Set(aUserIds).size).toBe(8)
   })
 
   it('respects room capacity', () => {
