@@ -1,7 +1,7 @@
 import { eq, and, inArray, sql } from 'drizzle-orm'
 import { rounds, roundRooms, rooms, sessions, sessionStars, slots, slotRegistrations } from '../database/schema'
 import { useDB } from '../database'
-import { buildSlotPlan, assignParticipants, roomMatchesSessionType } from './roundAlgorithm'
+import { buildSlotPlan, assignParticipants } from './roundAlgorithm'
 import type { AlgoRoom, AlgoSession, VoterRecord, SlotTiming } from './roundAlgorithm'
 
 /**
@@ -9,7 +9,7 @@ import type { AlgoRoom, AlgoSession, VoterRecord, SlotTiming } from './roundAlgo
  *  1. Calculates slots per room based on durations.
  *  2. Assigns eligible sessions to slots (biggest room → most popular; duplicates popular ones).
  *  3. Assigns starred users to sessions, respecting capacity and slotIndex conflicts.
- *  4. Persists slots and registrations to the DB.
+ *  4. Persists slots and registrations to the DB inside a transaction.
  *  5. Updates round status to 'assigned'.
  */
 export async function assignRound(roundId: string): Promise<void> {
@@ -67,28 +67,26 @@ export async function assignRound(roundId: string): Promise<void> {
 
   const workshopSessions = eligibleSessions.filter((s) => s.type === 'workshop')
   const discussionSessions = eligibleSessions.filter((s) => s.type === 'discussion')
-  const workshopRooms = enabledRooms.filter((r) => roomMatchesSessionType(r.type, 'workshop'))
-  const discussionRooms = enabledRooms.filter((r) => roomMatchesSessionType(r.type, 'discussion'))
+
+  // Split rooms into disjoint sets to avoid duplicate (roomId, slotIndex) pairs in the slot plan.
+  // 'both' rooms match either session type — assign them to workshops when workshop sessions exist,
+  // otherwise to discussions. This prevents unique constraint violations on slot insert.
+  const workshopOnlyRooms = enabledRooms.filter((r) => r.type === 'workshop')
+  const discussionOnlyRooms = enabledRooms.filter((r) => r.type === 'meeting')
+  const bothTypeRooms = enabledRooms.filter((r) => r.type === 'both')
+  const workshopRooms: AlgoRoom[] = workshopSessions.length > 0
+    ? [...workshopOnlyRooms, ...bothTypeRooms]
+    : workshopOnlyRooms
+  const discussionRooms: AlgoRoom[] = workshopSessions.length > 0
+    ? discussionOnlyRooms
+    : [...discussionOnlyRooms, ...bothTypeRooms]
 
   const slotPlan = [
     ...buildSlotPlan(workshopSessions, workshopRooms, round.duration, defaultWorkshopDuration, round.breakDuration),
     ...buildSlotPlan(discussionSessions, discussionRooms, round.duration, defaultDiscussionDuration, round.breakDuration),
   ]
 
-  await db.delete(slots).where(eq(slots.roundId, roundId))
-
-  if (slotPlan.length === 0) {
-    await db.update(rounds).set({ status: 'assigned', updatedAt: new Date() }).where(eq(rounds.id, roundId))
-    return
-  }
-
-  const insertedSlots = await db
-    .insert(slots)
-    .values(slotPlan.map((s) => ({ roundId, roomId: s.roomId, sessionId: s.sessionId, slotIndex: s.slotIndex })))
-    .returning()
-
-  const planWithIds = slotPlan.map((plan, i) => ({ ...plan, id: insertedSlots[i].id }))
-
+  // Fetch voter data before the transaction (read-only)
   const eligibleIds = eligibleSessions.map((s) => s.id)
   const voterRows = eligibleIds.length > 0
     ? await db
@@ -98,22 +96,43 @@ export async function assignRound(roundId: string): Promise<void> {
         .orderBy(sessionStars.createdAt)
     : []
 
-  const assignments = assignParticipants(planWithIds, voterRows as VoterRecord[], eligibleSessions, timing)
+  await db.transaction(async (tx) => {
+    await tx.delete(slots).where(eq(slots.roundId, roundId))
 
-  const slotIdMap = new Map<string, string>()
-  for (const p of planWithIds) {
-    if (p.sessionId) {
-      slotIdMap.set(`${p.roomId}|${p.slotIndex}|${p.sessionId}`, p.id)
+    if (slotPlan.length === 0) {
+      await tx.update(rounds).set({ status: 'assigned', updatedAt: new Date() }).where(eq(rounds.id, roundId))
+      return
     }
-  }
 
-  const registrations = assignments
-    .map((a) => ({ slotId: slotIdMap.get(`${a.roomId}|${a.slotIndex}|${a.sessionId}`), userId: a.userId }))
-    .filter((r): r is { slotId: string; userId: string } => !!r.slotId)
+    const insertedSlots = await tx
+      .insert(slots)
+      .values(slotPlan.map((s) => ({ roundId, roomId: s.roomId, sessionId: s.sessionId, slotIndex: s.slotIndex })))
+      .returning()
 
-  if (registrations.length > 0) {
-    await db.insert(slotRegistrations).values(registrations)
-  }
+    // Map by (roomId, slotIndex) rather than array index to avoid relying on INSERT returning order.
+    const insertedSlotMap = new Map(insertedSlots.map((s) => [`${s.roomId}|${s.slotIndex}`, s.id]))
+    const planWithIds = slotPlan.map((plan) => ({
+      ...plan,
+      id: insertedSlotMap.get(`${plan.roomId}|${plan.slotIndex}`) ?? '',
+    }))
 
-  await db.update(rounds).set({ status: 'assigned', updatedAt: new Date() }).where(eq(rounds.id, roundId))
+    const assignments = assignParticipants(planWithIds, voterRows as VoterRecord[], eligibleSessions, timing)
+
+    const slotIdMap = new Map<string, string>()
+    for (const p of planWithIds) {
+      if (p.sessionId) {
+        slotIdMap.set(`${p.roomId}|${p.slotIndex}|${p.sessionId}`, p.id)
+      }
+    }
+
+    const registrations = assignments
+      .map((a) => ({ slotId: slotIdMap.get(`${a.roomId}|${a.slotIndex}|${a.sessionId}`), userId: a.userId }))
+      .filter((r): r is { slotId: string; userId: string } => !!r.slotId)
+
+    if (registrations.length > 0) {
+      await tx.insert(slotRegistrations).values(registrations)
+    }
+
+    await tx.update(rounds).set({ status: 'assigned', updatedAt: new Date() }).where(eq(rounds.id, roundId))
+  })
 }

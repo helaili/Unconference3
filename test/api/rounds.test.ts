@@ -347,10 +347,15 @@ describe('Rounds Endpoints', async () => {
       const body = await assign.json()
       expect(body.status).toBe('assigned')
 
-      // Verify slots were created
+      // Verify slots were created with sessions and participants assigned
       const detail = await fetch(`${BASE}/${id}`, { headers: { Cookie: adminCookies } })
       const detailBody = await detail.json()
       expect(detailBody.slots.length).toBeGreaterThan(0)
+      const assignedSlots = detailBody.slots.filter((s: { sessionId: string | null }) => s.sessionId !== null)
+      expect(assignedSlots.length).toBeGreaterThan(0)
+      expect(typeof assignedSlots[0].session.starCount).toBe('number')
+      const slotsWithParticipants = detailBody.slots.filter((s: { registrations: unknown[] }) => s.registrations.length > 0)
+      expect(slotsWithParticipants.length).toBeGreaterThan(0)
 
       await fetch(`${BASE}/${id}`, { method: 'DELETE', headers: { Cookie: adminCookies } })
     })
