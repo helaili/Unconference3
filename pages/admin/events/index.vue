@@ -213,6 +213,16 @@ async function confirmDelete() {
           <v-icon>mdi-door</v-icon>
           <v-tooltip activator="parent" location="top">Manage Rooms</v-tooltip>
         </v-btn>
+        <v-btn
+          icon
+          size="small"
+          variant="text"
+          color="orange-darken-2"
+          :to="`/admin/events/${item.id}/rounds`"
+        >
+          <v-icon>mdi-timer-play-outline</v-icon>
+          <v-tooltip activator="parent" location="top">Manage Rounds</v-tooltip>
+        </v-btn>
         <v-btn icon size="small" variant="text" color="error" @click="openDelete(item)">
           <v-icon>mdi-delete</v-icon>
           <v-tooltip activator="parent" location="top">Delete</v-tooltip>
