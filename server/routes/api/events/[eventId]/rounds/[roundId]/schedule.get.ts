@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
   })
 
   return mySlots
-    .filter((r) => r.slot.roundId === roundId)
+    .filter((r) => r.slot !== null && r.slot.roundId === roundId)
     .map((r) => ({
       slotId: r.slot.id,
       slotIndex: r.slot.slotIndex,
