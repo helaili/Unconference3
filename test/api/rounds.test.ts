@@ -9,13 +9,20 @@ import {
   TEST_EVENT_ID,
   TEST_ROUND_DRAFT_ID,
   TEST_ROUND_ASSIGNED_ID,
+  TEST_ROUND_OPEN_ID,
   TEST_ROOM_WORKSHOP_ID,
   TEST_ROOM_MEETING_1_ID,
+  TEST_SESSION_IN_ASSIGNED_ROUND_1,
+  TEST_SESSION_IN_ASSIGNED_ROUND_2,
+  TEST_SESSION_IN_ASSIGNED_ROUND_3,
+  TEST_SESSION_IN_OPEN_ROUND_1,
+  TEST_SESSION_IN_OPEN_ROUND_2,
 } from './helpers'
 
 const BASE = `/api/events/${TEST_EVENT_ID}/rounds`
 const DRAFT_ROUND = `${BASE}/${TEST_ROUND_DRAFT_ID}`
 const ASSIGNED_ROUND = `${BASE}/${TEST_ROUND_ASSIGNED_ID}`
+const OPEN_ROUND = `${BASE}/${TEST_ROUND_OPEN_ID}`
 // Slot from seed data (slot ab000000-…-000000000001 belongs to the assigned round)
 const SEED_SLOT_ID = 'ab000000-0000-0000-0000-000000000001'
 
@@ -465,6 +472,94 @@ describe('Rounds Endpoints', async () => {
       const noahCookies = await loginAs(fetch, noahEmail)
       const res = await fetch(REGISTER_URL, { method: 'DELETE', headers: { Cookie: noahCookies } })
       expect(res.status).toBe(404)
+    })
+  })
+
+  // ─── Session status cascade on round status change ────────────────────────
+
+  describe('Session status cascade on round status transitions', () => {
+    const SESSIONS_BASE = `/api/events/${TEST_EVENT_ID}/sessions`
+
+    it('marks assigned sessions as scheduled when round transitions to open', async () => {
+      // Round 2 (assigned) has 3 sessions: d-002 (published), d-007 (scheduled), d-008 (published)
+      const res = await fetch(ASSIGNED_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'open' }),
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).status).toBe('open')
+
+      // All sessions in the round's slots should now be 'scheduled'
+      for (const sessionId of [
+        TEST_SESSION_IN_ASSIGNED_ROUND_1,
+        TEST_SESSION_IN_ASSIGNED_ROUND_2,
+        TEST_SESSION_IN_ASSIGNED_ROUND_3,
+      ]) {
+        const sessionRes = await fetch(`${SESSIONS_BASE}/${sessionId}`, {
+          headers: { Cookie: adminCookies },
+        })
+        expect(sessionRes.status).toBe(200)
+        expect((await sessionRes.json()).status).toBe('scheduled')
+      }
+
+      // Restore: transition round back to assigned (no session cascade)
+      await fetch(ASSIGNED_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'assigned' }),
+      })
+      // Restore sessions that were originally 'published'
+      for (const sessionId of [TEST_SESSION_IN_ASSIGNED_ROUND_1, TEST_SESSION_IN_ASSIGNED_ROUND_3]) {
+        await fetch(`${SESSIONS_BASE}/${sessionId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+          body: JSON.stringify({ status: 'published' }),
+        })
+      }
+    })
+
+    it('marks assigned sessions as delivered when round transitions to closed', async () => {
+      // Round 3 (open) has 2 sessions: d-009 (scheduled), d-012 (scheduled)
+      const res = await fetch(OPEN_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'closed' }),
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).status).toBe('closed')
+
+      for (const sessionId of [TEST_SESSION_IN_OPEN_ROUND_1, TEST_SESSION_IN_OPEN_ROUND_2]) {
+        const sessionRes = await fetch(`${SESSIONS_BASE}/${sessionId}`, {
+          headers: { Cookie: adminCookies },
+        })
+        expect(sessionRes.status).toBe(200)
+        expect((await sessionRes.json()).status).toBe('delivered')
+      }
+
+      // Restore: transition round back to open, which re-marks sessions as scheduled
+      await fetch(OPEN_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'open' }),
+      })
+    })
+
+    it('does not re-trigger session updates when round status is unchanged', async () => {
+      // PUT round 3 with same status 'open' — sessions should remain 'scheduled'
+      const res = await fetch(OPEN_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'open' }),
+      })
+      expect(res.status).toBe(200)
+      // Sessions should still be scheduled (no duplicate delivery)
+      for (const sessionId of [TEST_SESSION_IN_OPEN_ROUND_1, TEST_SESSION_IN_OPEN_ROUND_2]) {
+        const sessionRes = await fetch(`${SESSIONS_BASE}/${sessionId}`, {
+          headers: { Cookie: adminCookies },
+        })
+        expect((await sessionRes.json()).status).toBe('scheduled')
+      }
     })
   })
 })

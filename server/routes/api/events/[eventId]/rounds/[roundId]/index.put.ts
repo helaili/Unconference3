@@ -1,5 +1,5 @@
-import { eq, and } from 'drizzle-orm'
-import { rounds } from '~/server/database/schema'
+import { eq, and, inArray, isNotNull } from 'drizzle-orm'
+import { rounds, slots, sessions } from '~/server/database/schema'
 
 const logger = useLogger('rounds')
 
@@ -80,6 +80,36 @@ export default defineEventHandler(async (event) => {
     })
     .where(and(eq(rounds.id, roundId), eq(rounds.eventId, eventId)))
     .returning()
+
+  const newStatus = updated.status
+
+  if (newStatus === 'open' && existing.status !== 'open') {
+    const roundSlots = await db
+      .select({ sessionId: slots.sessionId })
+      .from(slots)
+      .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
+    const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
+    if (sessionIds.length > 0) {
+      await db
+        .update(sessions)
+        .set({ status: 'scheduled', updatedAt: new Date() })
+        .where(inArray(sessions.id, sessionIds))
+    }
+    logger.info(`Marked ${sessionIds.length} session(s) as scheduled for round ${roundId}`)
+  } else if (newStatus === 'closed' && existing.status !== 'closed') {
+    const roundSlots = await db
+      .select({ sessionId: slots.sessionId })
+      .from(slots)
+      .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
+    const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
+    if (sessionIds.length > 0) {
+      await db
+        .update(sessions)
+        .set({ status: 'delivered', updatedAt: new Date() })
+        .where(inArray(sessions.id, sessionIds))
+    }
+    logger.info(`Marked ${sessionIds.length} session(s) as delivered for round ${roundId}`)
+  }
 
   logger.info(`Round updated: ${roundId}`)
   return updated
