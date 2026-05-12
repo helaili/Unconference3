@@ -28,5 +28,15 @@
     "minParticipants": 1,
     "breakDuration": 15,
     "status": "open"
+  },
+  {
+    "id": "aa000000-0000-0000-0000-000000000004",
+    "eventId": "a0000000-0000-0000-0000-000000000001",
+    "name": "Round 4 - Close Test",
+    "duration": 30,
+    "startTime": "2026-06-01T17:00:00.000Z",
+    "minParticipants": 1,
+    "breakDuration": 15,
+    "status": "open"
   }
 ]

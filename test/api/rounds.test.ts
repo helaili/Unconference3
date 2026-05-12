@@ -9,15 +9,19 @@ import {
   TEST_EVENT_ID,
   TEST_ROUND_DRAFT_ID,
   TEST_ROUND_ASSIGNED_ID,
+  TEST_ROUND_CLOSEABLE_ID,
   TEST_ROOM_WORKSHOP_ID,
   TEST_ROOM_MEETING_1_ID,
+  TEST_SESSION_STARRED_BY_DIANA_3,
 } from './helpers'
 
 const BASE = `/api/events/${TEST_EVENT_ID}/rounds`
 const DRAFT_ROUND = `${BASE}/${TEST_ROUND_DRAFT_ID}`
 const ASSIGNED_ROUND = `${BASE}/${TEST_ROUND_ASSIGNED_ID}`
+const CLOSEABLE_ROUND = `${BASE}/${TEST_ROUND_CLOSEABLE_ID}`
 // Slot from seed data (slot ab000000-…-000000000001 belongs to the assigned round)
 const SEED_SLOT_ID = 'ab000000-0000-0000-0000-000000000001'
+const SESSIONS_BASE = `/api/events/${TEST_EVENT_ID}/sessions`
 
 describe('Rounds Endpoints', async () => {
   let adminCookies: string
@@ -465,6 +469,90 @@ describe('Rounds Endpoints', async () => {
       const noahCookies = await loginAs(fetch, noahEmail)
       const res = await fetch(REGISTER_URL, { method: 'DELETE', headers: { Cookie: noahCookies } })
       expect(res.status).toBe(404)
+    })
+  })
+
+  // ─── Close round: star deduction ─────────────────────────────────────────────
+
+  describe('PUT /rounds/[roundId] — closing deducts stars for attended sessions', () => {
+    // Seed fixture: Round 4 (aa000000-…-000000000004, status "open") has one slot
+    // (ab000000-…-000000000020, session d007). Diana (b010) is registered in that
+    // slot and has a star for session d007 (TEST_SESSION_STARRED_BY_DIANA_3).
+
+    it('diana has the star for session d007 before round is closed', async () => {
+      const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      expect(res.status).toBe(200)
+      const list = await res.json() as Array<{ id: string; isStarred: boolean }>
+      const session = list.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)
+      expect(session?.isStarred).toBe(true)
+    })
+
+    it('returns 403 for non-admin trying to close a round', async () => {
+      const res = await fetch(CLOSEABLE_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: userCookies },
+        body: JSON.stringify({ status: 'closed' }),
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('admin closes the round and response has status=closed', async () => {
+      const res = await fetch(CLOSEABLE_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'closed' }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.status).toBe('closed')
+    })
+
+    it('diana loses her star for session d007 after the round is closed', async () => {
+      const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      expect(res.status).toBe(200)
+      const list = await res.json() as Array<{ id: string; isStarred: boolean; starCount: number }>
+      const session = list.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)
+      expect(session?.isStarred).toBe(false)
+    })
+
+    it('diana retains stars for sessions she was NOT assigned to in the closed round', async () => {
+      const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      const list = await res.json() as Array<{ id: string; isStarred: boolean }>
+      // Diana was not assigned to d002, d003, or d008 in round 4 — stars must remain
+      const d002 = list.find(s => s.id === 'd0000000-0000-0000-0000-000000000002')
+      const d003 = list.find(s => s.id === 'd0000000-0000-0000-0000-000000000003')
+      const d008 = list.find(s => s.id === 'd0000000-0000-0000-0000-000000000008')
+      expect(d002?.isStarred).toBe(true)
+      expect(d003?.isStarred).toBe(true)
+      expect(d008?.isStarred).toBe(true)
+    })
+
+    it('closing an already-closed round does not remove newly re-added stars', async () => {
+      // Re-star d007 after round was closed
+      const restarRes = await fetch(`${SESSIONS_BASE}/d0000000-0000-0000-0000-000000000007/star`, {
+        method: 'POST',
+        headers: { Cookie: userCookies },
+      })
+      expect(restarRes.status).toBe(200)
+
+      // Close again — should be idempotent (round is already closed)
+      await fetch(CLOSEABLE_ROUND, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ status: 'closed' }),
+      })
+
+      // Star must still be there because the round was already closed
+      const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      const list = await res.json() as Array<{ id: string; isStarred: boolean }>
+      const session = list.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)
+      expect(session?.isStarred).toBe(true)
+
+      // Cleanup: unstar to restore seed state
+      await fetch(`${SESSIONS_BASE}/d0000000-0000-0000-0000-000000000007/star`, {
+        method: 'DELETE',
+        headers: { Cookie: userCookies },
+      })
     })
   })
 })
