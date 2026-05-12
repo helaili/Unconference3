@@ -134,6 +134,15 @@ watch(
                 <v-btn
                   size="small"
                   variant="text"
+                  color="orange-darken-2"
+                  :to="`/admin/events/${ev.id}/rounds`"
+                  prepend-icon="mdi-timer-play-outline"
+                >
+                  Rounds
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
                   color="primary"
                   to="/admin/events"
                   prepend-icon="mdi-pencil"
