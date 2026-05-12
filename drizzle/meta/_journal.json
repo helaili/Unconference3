@@ -64,6 +64,13 @@
       "when": 1778168949000,
       "tag": "0008_round_break_duration",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778588124418,
+      "tag": "0009_introduction_round",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,8 @@ export async function migrateAndSeed() {
     DROP TABLE IF EXISTS user_events CASCADE;
     DROP TABLE IF EXISTS invitations CASCADE;
     DROP TABLE IF EXISTS invitees CASCADE;
+    DROP TABLE IF EXISTS introduction_slot_assignments CASCADE;
+    DROP TABLE IF EXISTS introduction_rounds CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
     DROP TYPE IF EXISTS round_status;
@@ -37,6 +39,7 @@ export async function migrateAndSeed() {
     DROP TYPE IF EXISTS session_type;
     DROP TYPE IF EXISTS session_status;
     DROP TYPE IF EXISTS invitee_role;
+    DROP TYPE IF EXISTS intro_round_status;
   `)
 
   const migrationsDir = resolve(__dirname, '../../drizzle')
@@ -107,6 +110,11 @@ export async function migrateAndSeed() {
     if (slotRegistrationsFixture.length > 0) {
       await db.insert(schema.slotRegistrations).values(slotRegistrationsFixture)
     }
+  }
+
+  const introRoundsFixture = loadJson('introduction-rounds.json')
+  if (introRoundsFixture.length > 0) {
+    await db.insert(schema.introductionRounds).values(introRoundsFixture)
   }
 
   await client.end()

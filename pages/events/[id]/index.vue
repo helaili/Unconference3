@@ -232,6 +232,32 @@ async function submitEdit() {
   }
 }
 
+// ── Introduction round ───────────────────────────────────────────────────────
+interface IntroAssignment {
+  slotIndex: number
+  roomId: string
+  roomName: string
+}
+
+interface IntroRoundParticipantView {
+  id: string
+  numSlots: number
+  groupSize: number
+  status: string
+  myAssignments: IntroAssignment[]
+}
+
+const { data: introRound } = useAsyncData<IntroRoundParticipantView | null>(
+  `intro-round-participant-${eventId}`,
+  async () => {
+    try {
+      return await $fetch<IntroRoundParticipantView>(`/api/events/${eventId}/introduction-round`)
+    } catch {
+      return null
+    }
+  },
+)
+
 // ── Booking grid ──────────────────────────────────────────────────────────────
 const { data: allRounds } = useFetch<RoundItem[]>(`/api/events/${eventId}/rounds`)
 
@@ -422,6 +448,37 @@ function effectiveDuration(session: SessionItem): string {
     >
       {{ starError }}
     </v-alert>
+
+    <!-- ── Introduction round ─────────────────────────────────────────────── -->
+    <template v-if="introRound && introRound.status === 'open' && introRound.myAssignments.length > 0">
+      <v-divider class="my-6" />
+      <h2 class="text-h5 mb-3">
+        <v-icon start color="deep-purple">mdi-account-group-outline</v-icon>
+        Introduction Round
+      </h2>
+      <p class="text-body-2 text-medium-emphasis mb-4">
+        Welcome! Here are your room assignments for the introduction round.
+        Head to your assigned room for each slot to meet other participants.
+      </p>
+      <v-row>
+        <v-col
+          v-for="a in introRound.myAssignments"
+          :key="a.slotIndex"
+          cols="12"
+          sm="6"
+          md="4"
+          lg="3"
+        >
+          <v-card variant="tonal" color="deep-purple">
+            <v-card-text class="text-center pa-5">
+              <div class="text-caption text-medium-emphasis mb-1">Slot {{ a.slotIndex + 1 }}</div>
+              <v-icon size="40" class="mb-2">mdi-door-open</v-icon>
+              <div class="text-h6 font-weight-bold">{{ a.roomName }}</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+    </template>
 
     <!-- ── Booking grid (open rounds) ──────────────────────────────────────── -->
     <template v-if="openRoundDetails.length > 0">

@@ -15,6 +15,7 @@ const tabs = computed(() => [
   { title: 'Sessions', to: `/admin/events/${eventId}/sessions`, icon: 'mdi-message-text-outline' },
   { title: 'Rooms', to: `/admin/events/${eventId}/rooms`, icon: 'mdi-door-open' },
   { title: 'Rounds', to: `/admin/events/${eventId}/rounds`, icon: 'mdi-clock-outline' },
+  { title: 'Introduction', to: `/admin/events/${eventId}/introduction`, icon: 'mdi-account-group-outline' },
   { title: 'Invitees', to: `/admin/events/${eventId}/invitees`, icon: 'mdi-account-multiple-outline' },
 ])
 </script>
