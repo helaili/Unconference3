@@ -1,4 +1,4 @@
-import { eq, and, inArray, isNotNull } from 'drizzle-orm'
+import { eq, and, sql, inArray, isNotNull } from 'drizzle-orm'
 import { rounds, slots, sessions } from '~/server/database/schema'
 
 const logger = useLogger('rounds')
@@ -62,54 +62,89 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'status must be one of: draft, assigned, open, closed' })
   }
 
-  const [updated] = await db
-    .update(rounds)
-    .set({
-      name: body.name !== undefined ? (body.name?.trim() || null) : existing.name,
-      duration: body.duration ?? existing.duration,
-      startTime:
-        body.startTime !== undefined
-          ? body.startTime
-            ? new Date(body.startTime)
-            : null
-          : existing.startTime,
-      minParticipants: body.minParticipants ?? existing.minParticipants,
-      breakDuration: body.breakDuration ?? existing.breakDuration,
-      status: (body.status as 'draft' | 'assigned' | 'open' | 'closed' | undefined) ?? existing.status,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(rounds.id, roundId), eq(rounds.eventId, eventId)))
-    .returning()
+  const newStatus = (body.status as 'draft' | 'assigned' | 'open' | 'closed' | undefined) ?? existing.status
+  const isClosing = newStatus === 'closed'
+  const isOpening = newStatus === 'open'
 
-  const newStatus = updated.status
+  const updated = await db.transaction(async (tx) => {
+    // Lock the round row to prevent concurrent races during status transitions
+    const [locked] = await tx
+      .select({ status: rounds.status })
+      .from(rounds)
+      .where(and(eq(rounds.id, roundId), eq(rounds.eventId, eventId)))
+      .for('update')
+      .limit(1)
 
-  if (newStatus === 'open' && existing.status !== 'open') {
-    const roundSlots = await db
-      .select({ sessionId: slots.sessionId })
-      .from(slots)
-      .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
-    const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
-    if (sessionIds.length > 0) {
-      await db
-        .update(sessions)
-        .set({ status: 'scheduled', updatedAt: new Date() })
-        .where(inArray(sessions.id, sessionIds))
+    if (!locked) {
+      throw createError({ statusCode: 404, statusMessage: 'Round not found' })
     }
-    logger.info(`Marked ${sessionIds.length} session(s) as scheduled for round ${roundId}`)
-  } else if (newStatus === 'closed' && existing.status !== 'closed') {
-    const roundSlots = await db
-      .select({ sessionId: slots.sessionId })
-      .from(slots)
-      .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
-    const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
-    if (sessionIds.length > 0) {
-      await db
-        .update(sessions)
-        .set({ status: 'delivered', updatedAt: new Date() })
-        .where(inArray(sessions.id, sessionIds))
+
+    // On transition to 'closed', remove stars for every (participant, session) pair
+    // where the participant is registered in a slot of this round
+    if (isClosing && locked.status !== 'closed') {
+      await tx.execute(sql`
+        DELETE FROM session_stars
+        WHERE (user_id, session_id) IN (
+          SELECT sr.user_id, s.session_id
+          FROM slot_registrations sr
+          JOIN slots s ON sr.slot_id = s.id
+          WHERE s.round_id = ${roundId}::uuid
+            AND s.session_id IS NOT NULL
+        )
+      `)
+      logger.info(`Stars deducted for closed round: ${roundId}`)
     }
-    logger.info(`Marked ${sessionIds.length} session(s) as delivered for round ${roundId}`)
-  }
+
+    const [u] = await tx
+      .update(rounds)
+      .set({
+        name: body.name !== undefined ? (body.name?.trim() || null) : existing.name,
+        duration: body.duration ?? existing.duration,
+        startTime:
+          body.startTime !== undefined
+            ? body.startTime
+              ? new Date(body.startTime)
+              : null
+            : existing.startTime,
+        minParticipants: body.minParticipants ?? existing.minParticipants,
+        breakDuration: body.breakDuration ?? existing.breakDuration,
+        status: newStatus,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(rounds.id, roundId), eq(rounds.eventId, eventId)))
+      .returning()
+
+    // Cascade session status when round opens or closes
+    if (isOpening && locked.status !== 'open') {
+      const roundSlots = await tx
+        .select({ sessionId: slots.sessionId })
+        .from(slots)
+        .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
+      const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
+      if (sessionIds.length > 0) {
+        await tx
+          .update(sessions)
+          .set({ status: 'scheduled', updatedAt: new Date() })
+          .where(inArray(sessions.id, sessionIds))
+      }
+      logger.info(`Marked ${sessionIds.length} session(s) as scheduled for round ${roundId}`)
+    } else if (isClosing && locked.status !== 'closed') {
+      const roundSlots = await tx
+        .select({ sessionId: slots.sessionId })
+        .from(slots)
+        .where(and(eq(slots.roundId, roundId), isNotNull(slots.sessionId)))
+      const sessionIds = roundSlots.map(s => s.sessionId).filter(Boolean) as string[]
+      if (sessionIds.length > 0) {
+        await tx
+          .update(sessions)
+          .set({ status: 'delivered', updatedAt: new Date() })
+          .where(inArray(sessions.id, sessionIds))
+      }
+      logger.info(`Marked ${sessionIds.length} session(s) as delivered for round ${roundId}`)
+    }
+
+    return u
+  })
 
   logger.info(`Round updated: ${roundId}`)
   return updated
