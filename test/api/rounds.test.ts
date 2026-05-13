@@ -601,7 +601,7 @@ describe('Rounds Endpoints', async () => {
     })
 
     it('diana loses her star for session d007 after the round is closed', async () => {
-      const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      const res = await fetch(`${SESSIONS_BASE}?includeDelivered=true`, { headers: { Cookie: userCookies } })
       expect(res.status).toBe(200)
       const list = await res.json() as Array<{ id: string; isStarred: boolean; starCount: number }>
       const session = list.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)
@@ -620,32 +620,27 @@ describe('Rounds Endpoints', async () => {
       expect(d008?.isStarred).toBe(true)
     })
 
-    it('closing an already-closed round does not remove newly re-added stars', async () => {
-      // Re-star d007 after round was closed
+    it('closing an already-closed round remains idempotent', async () => {
+      // Re-starring a delivered session is not allowed
       const restarRes = await fetch(`${SESSIONS_BASE}/d0000000-0000-0000-0000-000000000007/star`, {
         method: 'POST',
         headers: { Cookie: userCookies },
       })
-      expect(restarRes.status).toBe(200)
+      expect(restarRes.status).toBe(400)
 
-      // Close again — should be idempotent (round is already closed)
-      await fetch(CLOSEABLE_ROUND, {
+      // Close again — should be idempotent (round is already closed) and keep unrelated stars
+      const closeAgainRes = await fetch(CLOSEABLE_ROUND, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
         body: JSON.stringify({ status: 'closed' }),
       })
+      expect(closeAgainRes.status).toBe(200)
 
-      // Star must still be there because the round was already closed
+      // Existing stars on sessions not part of this round must remain
       const res = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
       const list = await res.json() as Array<{ id: string; isStarred: boolean }>
-      const session = list.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)
+      const session = list.find(s => s.id === 'd0000000-0000-0000-0000-000000000002')
       expect(session?.isStarred).toBe(true)
-
-      // Cleanup: unstar to restore seed state
-      await fetch(`${SESSIONS_BASE}/d0000000-0000-0000-0000-000000000007/star`, {
-        method: 'DELETE',
-        headers: { Cookie: userCookies },
-      })
     })
   })
 })
