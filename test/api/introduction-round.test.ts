@@ -225,6 +225,15 @@ describe('Introduction Round Endpoints', async () => {
         }
       }
     })
+
+    it('cannot edit config while open', async () => {
+      const res = await fetch(BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ numSlots: 2 }),
+      })
+      expect(res.status).toBe(409)
+    })
   })
 
   // ─── POST /close ─────────────────────────────────────────────────────────────
