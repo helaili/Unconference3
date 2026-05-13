@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm'
+import { eq, and, inArray } from 'drizzle-orm'
 import { events, introductionRounds, introductionSlotAssignments, userEvents, users, rooms } from '~/server/database/schema'
 import { dispatchIntroductionRound } from '~/server/utils/introductionAlgorithm'
 
@@ -45,11 +45,19 @@ export default defineEventHandler(async (event) => {
     email: r.email ?? '',
   }))
 
-  // Fetch all rooms for this event (no capacity/type filter per spec)
-  const eventRooms = await db
-    .select({ id: rooms.id })
-    .from(rooms)
-    .where(eq(rooms.eventId, eventId))
+  // Fetch rooms: use selected roomIds if configured, otherwise all event rooms
+  let eventRooms: { id: string }[]
+  if (introRound.roomIds && introRound.roomIds.length > 0) {
+    eventRooms = await db
+      .select({ id: rooms.id })
+      .from(rooms)
+      .where(and(eq(rooms.eventId, eventId), inArray(rooms.id, introRound.roomIds)))
+  } else {
+    eventRooms = await db
+      .select({ id: rooms.id })
+      .from(rooms)
+      .where(eq(rooms.eventId, eventId))
+  }
 
   if (eventRooms.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'No rooms found for this event' })

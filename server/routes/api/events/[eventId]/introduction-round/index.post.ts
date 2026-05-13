@@ -1,5 +1,5 @@
-import { eq } from 'drizzle-orm'
-import { events, introductionRounds } from '~/server/database/schema'
+import { eq, and, inArray } from 'drizzle-orm'
+import { events, introductionRounds, rooms } from '~/server/database/schema'
 
 const logger = useLogger('introduction-round')
 
@@ -18,10 +18,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'Event not found' })
   }
 
-  const body = await readBody<{ numSlots?: number; groupSize?: number }>(event)
+  const body = await readBody<{ numSlots?: number; groupSize?: number; roomIds?: string[] }>(event)
 
   const numSlots = body?.numSlots
   const groupSize = body?.groupSize
+  const roomIds = body?.roomIds
 
   if (numSlots !== undefined) {
     if (!Number.isInteger(numSlots) || numSlots < 1) {
@@ -33,6 +34,21 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, statusMessage: 'groupSize must be a positive integer' })
     }
   }
+  if (roomIds !== undefined) {
+    if (!Array.isArray(roomIds) || roomIds.some(id => typeof id !== 'string')) {
+      throw createError({ statusCode: 400, statusMessage: 'roomIds must be an array of strings' })
+    }
+    if (roomIds.length > 0) {
+      // Validate all roomIds belong to this event
+      const validRooms = await db
+        .select({ id: rooms.id })
+        .from(rooms)
+        .where(and(eq(rooms.eventId, eventId), inArray(rooms.id, roomIds)))
+      if (validRooms.length !== roomIds.length) {
+        throw createError({ statusCode: 400, statusMessage: 'Some room IDs are invalid for this event' })
+      }
+    }
+  }
 
   const [existing] = await db
     .select()
@@ -41,17 +57,12 @@ export default defineEventHandler(async (event) => {
     .limit(1)
 
   if (existing) {
-    if (existing.status !== 'draft') {
-      throw createError({
-        statusCode: 409,
-        statusMessage: 'Cannot edit settings while round is open or closed. Close the round first.',
-      })
-    }
     const [updated] = await db
       .update(introductionRounds)
       .set({
         numSlots: numSlots ?? existing.numSlots,
         groupSize: groupSize ?? existing.groupSize,
+        roomIds: roomIds !== undefined ? (roomIds.length > 0 ? roomIds : null) : existing.roomIds,
         updatedAt: new Date(),
       })
       .where(eq(introductionRounds.id, existing.id))
@@ -66,6 +77,7 @@ export default defineEventHandler(async (event) => {
       eventId,
       numSlots: numSlots ?? 2,
       groupSize: groupSize ?? 10,
+      roomIds: roomIds && roomIds.length > 0 ? roomIds : null,
     })
     .returning()
 

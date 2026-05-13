@@ -310,6 +310,7 @@ export const introductionRounds = pgTable('introduction_rounds', {
     .references(() => events.id, { onDelete: 'cascade' }),
   numSlots: integer('num_slots').notNull().default(2),
   groupSize: integer('group_size').notNull().default(10),
+  roomIds: uuid('room_ids').array(),
   status: introRoundStatusEnum('status').notNull().default('draft'),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),

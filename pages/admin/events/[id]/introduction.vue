@@ -6,11 +6,17 @@ const eventId = route.params.id as string
 
 type IntroRoundStatus = 'draft' | 'open' | 'closed'
 
+interface Room {
+  id: string
+  name: string
+}
+
 interface IntroRound {
   id: string
   eventId: string
   numSlots: number
   groupSize: number
+  roomIds: string[] | null
   status: IntroRoundStatus
   updatedAt: string
 }
@@ -34,6 +40,7 @@ interface Slot {
 }
 
 interface IntroRoundDetail extends IntroRound {
+  availableRooms: Room[]
   slots: Slot[]
 }
 
@@ -51,6 +58,13 @@ const { data: introRound, status: fetchStatus, refresh } = useAsyncData<IntroRou
   },
 )
 
+// Fetch rooms independently (needed for "Configure" before any round exists)
+const { data: allRooms } = useAsyncData<Room[]>(
+  `rooms-${eventId}`,
+  () => $fetch<Room[]>(`/api/events/${eventId}/rooms`),
+  { default: () => [] },
+)
+
 const statusColors: Record<IntroRoundStatus, string> = {
   draft: 'grey',
   open: 'green',
@@ -59,14 +73,19 @@ const statusColors: Record<IntroRoundStatus, string> = {
 
 // ── Create / Edit dialog ──────────────────────────────────────────────────────
 const configDialog = ref(false)
-const configForm = ref({ numSlots: 2, groupSize: 10 })
+const configForm = ref({ numSlots: 2, groupSize: 10, roomIds: [] as string[] })
 const saving = ref(false)
 const actionError = ref('')
+
+const availableRooms = computed<Room[]>(() =>
+  introRound.value?.availableRooms ?? allRooms.value ?? [],
+)
 
 function openConfig() {
   configForm.value = {
     numSlots: introRound.value?.numSlots ?? 2,
     groupSize: introRound.value?.groupSize ?? 10,
+    roomIds: introRound.value?.roomIds ?? [],
   }
   actionError.value = ''
   configDialog.value = true
@@ -85,6 +104,7 @@ async function saveConfig() {
       body: {
         numSlots: configForm.value.numSlots,
         groupSize: configForm.value.groupSize,
+        roomIds: configForm.value.roomIds,
       },
     })
     configDialog.value = false
@@ -137,6 +157,14 @@ function participantName(p: Participant): string {
   const parts = [p.firstName, p.lastName].filter(Boolean)
   return parts.length > 0 ? parts.join(' ') : p.email
 }
+
+function selectedRoomNames(roomIds: string[] | null): string {
+  if (!roomIds || roomIds.length === 0) return 'All rooms'
+  const rooms = availableRooms.value
+  return roomIds
+    .map(id => rooms.find(r => r.id === id)?.name ?? id)
+    .join(', ')
+}
 </script>
 
 <template>
@@ -166,14 +194,14 @@ function participantName(p: Participant): string {
           <v-chip :color="statusColors[introRound.status]" size="small">{{ introRound.status }}</v-chip>
         </v-card-title>
         <v-card-text>
-          <div class="d-flex ga-6 text-body-2">
+          <div class="d-flex flex-wrap ga-6 text-body-2">
             <span><v-icon size="small">mdi-clock-outline</v-icon> {{ introRound.numSlots }} slot{{ introRound.numSlots !== 1 ? 's' : '' }}</span>
             <span><v-icon size="small">mdi-account-group-outline</v-icon> {{ introRound.groupSize }} per group</span>
+            <span><v-icon size="small">mdi-door-open</v-icon> {{ selectedRoomNames(introRound.roomIds) }}</span>
           </div>
         </v-card-text>
         <v-card-actions>
           <v-btn
-            v-if="introRound.status === 'draft'"
             variant="text"
             prepend-icon="mdi-cog-outline"
             :disabled="dispatching || closing"
@@ -268,7 +296,7 @@ function participantName(p: Participant): string {
     </template>
 
     <!-- Configure dialog -->
-    <v-dialog v-model="configDialog" max-width="450" persistent>
+    <v-dialog v-model="configDialog" max-width="500" persistent>
       <v-card>
         <v-card-title>Configure Introduction Round</v-card-title>
         <v-card-text>
@@ -296,9 +324,30 @@ function participantName(p: Participant): string {
             label="Group size (max per room)"
             type="number"
             min="1"
+            class="mb-4"
             hint="Target number of people per room (default 10)"
             persistent-hint
           />
+          <div class="text-subtitle-2 mb-2">Rooms</div>
+          <div class="text-caption text-grey mb-3">
+            Select specific rooms, or leave all unchecked to use every room.
+          </div>
+          <v-chip-group
+            v-model="configForm.roomIds"
+            multiple
+            column
+          >
+            <v-chip
+              v-for="room in availableRooms"
+              :key="room.id"
+              :value="room.id"
+              filter
+              variant="outlined"
+              color="deep-purple"
+            >
+              {{ room.name }}
+            </v-chip>
+          </v-chip-group>
         </v-card-text>
         <v-card-actions>
           <v-spacer />

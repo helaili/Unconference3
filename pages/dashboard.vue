@@ -143,6 +143,15 @@ watch(
                 <v-btn
                   size="small"
                   variant="text"
+                  color="deep-purple"
+                  :to="`/admin/events/${ev.id}/introduction`"
+                  prepend-icon="mdi-account-group-outline"
+                >
+                  Introduction
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="text"
                   color="primary"
                   to="/admin/events"
                   prepend-icon="mdi-pencil"

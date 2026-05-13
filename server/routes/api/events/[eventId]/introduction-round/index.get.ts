@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm'
-import { introductionRounds, introductionSlotAssignments, users, rooms } from '~/server/database/schema'
+import { introductionRounds, introductionSlotAssignments, users, rooms, events } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
@@ -51,6 +51,12 @@ export default defineEventHandler(async (event) => {
     .where(eq(introductionSlotAssignments.introRoundId, introRound.id))
 
   if (adminUser) {
+    // Fetch all available rooms for this event
+    const eventRooms = await db
+      .select({ id: rooms.id, name: rooms.name })
+      .from(rooms)
+      .where(eq(rooms.eventId, eventId))
+
     // Admin sees all slots with all groups
     const slotMap = new Map<number, Map<string, { roomName: string; participants: object[] }>>()
 
@@ -84,9 +90,11 @@ export default defineEventHandler(async (event) => {
       eventId: introRound.eventId,
       numSlots: introRound.numSlots,
       groupSize: introRound.groupSize,
+      roomIds: introRound.roomIds,
       status: introRound.status,
       createdAt: introRound.createdAt,
       updatedAt: introRound.updatedAt,
+      availableRooms: eventRooms,
       slots,
     }
   }
