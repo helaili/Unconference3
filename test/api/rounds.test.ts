@@ -601,6 +601,11 @@ describe('Rounds Endpoints', async () => {
     })
 
     it('diana loses her star for session d007 after the round is closed', async () => {
+      const resWithoutDelivered = await fetch(SESSIONS_BASE, { headers: { Cookie: userCookies } })
+      expect(resWithoutDelivered.status).toBe(200)
+      const listWithoutDelivered = await resWithoutDelivered.json() as Array<{ id: string }>
+      expect(listWithoutDelivered.find(s => s.id === TEST_SESSION_STARRED_BY_DIANA_3)).toBeUndefined()
+
       const res = await fetch(`${SESSIONS_BASE}?includeDelivered=true`, { headers: { Cookie: userCookies } })
       expect(res.status).toBe(200)
       const list = await res.json() as Array<{ id: string; isStarred: boolean; starCount: number }>
