@@ -57,6 +57,10 @@ export default defineEventHandler(async (event) => {
     .limit(1)
 
   if (existing) {
+    if (existing.status !== 'draft') {
+      throw createError({ statusCode: 409, statusMessage: 'Introduction round can only be edited while in draft status' })
+    }
+
     const [updated] = await db
       .update(introductionRounds)
       .set({
