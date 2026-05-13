@@ -1,0 +1,255 @@
+name: Azure Infrastructure Setup
+
+# Run this workflow once to provision all Azure resources.
+# Re-running is safe — existing resources are left untouched.
+
+on:
+  workflow_dispatch:
+    inputs:
+      resource_group:
+        description: 'Resource Group name'
+        required: true
+        default: 'rg-unconference'
+      location:
+        description: 'Azure region (e.g. northeurope)'
+        required: true
+        default: 'northeurope'
+      acr_name:
+        description: 'Container Registry name (globally unique, lowercase alphanumeric)'
+        required: true
+        default: 'acrunconference'
+      environment_name:
+        description: 'Container Apps Environment name'
+        required: true
+        default: 'cae-unconference'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  provision:
+    name: Provision Azure Infrastructure
+    runs-on: ubuntu-latest
+    env:
+      RESOURCE_GROUP: ${{ github.event.inputs.resource_group }}
+      LOCATION: ${{ github.event.inputs.location }}
+      ACR_NAME: ${{ github.event.inputs.acr_name }}
+      CAE_NAME: ${{ github.event.inputs.environment_name }}
+      APP_NAME: unconference-app
+      DB_APP_NAME: unconference-db
+      IDENTITY_NAME: id-unconference
+      LOG_WORKSPACE: log-unconference
+
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # ── Resource Group ──────────────────────────────────────────────────────
+      - name: Create Resource Group
+        run: |
+          az group create \
+            --name "$RESOURCE_GROUP" \
+            --location "$LOCATION" \
+            --output none
+
+      # ── Container Registry ─────────────────────────────────────────────────
+      - name: Create Container Registry
+        run: |
+          if ! az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" \
+               --query name -o tsv &>/dev/null; then
+            az acr create \
+              --resource-group "$RESOURCE_GROUP" \
+              --name "$ACR_NAME" \
+              --sku Basic \
+              --admin-enabled false \
+              --output none
+            echo "✅ Container Registry created: $ACR_NAME"
+          else
+            echo "ℹ️  Container Registry already exists: $ACR_NAME"
+          fi
+
+      # ── Managed Identity ───────────────────────────────────────────────────
+      - name: Create Managed Identity
+        run: |
+          if ! az identity show --name "$IDENTITY_NAME" \
+               --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            az identity create \
+              --name "$IDENTITY_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --output none
+            echo "✅ Managed identity created: $IDENTITY_NAME"
+          else
+            echo "ℹ️  Managed identity already exists: $IDENTITY_NAME"
+          fi
+
+      - name: Assign AcrPull to Managed Identity
+        run: |
+          IDENTITY_PRINCIPAL_ID=$(az identity show \
+            --name "$IDENTITY_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query principalId -o tsv)
+          ACR_ID=$(az acr show --name "$ACR_NAME" --query id -o tsv)
+
+          # Role assignment is idempotent
+          az role assignment create \
+            --assignee-object-id "$IDENTITY_PRINCIPAL_ID" \
+            --assignee-principal-type ServicePrincipal \
+            --role AcrPull \
+            --scope "$ACR_ID" \
+            --output none 2>/dev/null || echo "ℹ️  AcrPull role already assigned"
+
+      # ── Log Analytics Workspace ────────────────────────────────────────────
+      - name: Create Log Analytics Workspace
+        run: |
+          if ! az monitor log-analytics workspace show \
+               --resource-group "$RESOURCE_GROUP" \
+               --workspace-name "$LOG_WORKSPACE" &>/dev/null; then
+            az monitor log-analytics workspace create \
+              --resource-group "$RESOURCE_GROUP" \
+              --workspace-name "$LOG_WORKSPACE" \
+              --location "$LOCATION" \
+              --output none
+            echo "✅ Log Analytics workspace created: $LOG_WORKSPACE"
+          else
+            echo "ℹ️  Log Analytics workspace already exists: $LOG_WORKSPACE"
+          fi
+
+      # ── Container Apps Environment ─────────────────────────────────────────
+      - name: Create Container Apps Environment
+        run: |
+          if ! az containerapp env show \
+               --name "$CAE_NAME" \
+               --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            LOG_WS_ID=$(az monitor log-analytics workspace show \
+              --resource-group "$RESOURCE_GROUP" \
+              --workspace-name "$LOG_WORKSPACE" \
+              --query customerId -o tsv)
+            LOG_WS_KEY=$(az monitor log-analytics workspace get-shared-keys \
+              --resource-group "$RESOURCE_GROUP" \
+              --workspace-name "$LOG_WORKSPACE" \
+              --query primarySharedKey -o tsv)
+
+            az containerapp env create \
+              --name "$CAE_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --location "$LOCATION" \
+              --logs-workspace-id "$LOG_WS_ID" \
+              --logs-workspace-key "$LOG_WS_KEY" \
+              --output none
+            echo "✅ Container Apps Environment created: $CAE_NAME"
+          else
+            echo "ℹ️  Container Apps Environment already exists: $CAE_NAME"
+          fi
+
+      # ── PostgreSQL Container App ───────────────────────────────────────────
+      - name: Create PostgreSQL Container App
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          if ! az containerapp show \
+               --name "$DB_APP_NAME" \
+               --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            az containerapp create \
+              --name "$DB_APP_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --environment "$CAE_NAME" \
+              --image postgres:17 \
+              --cpu 0.5 \
+              --memory 1Gi \
+              --min-replicas 1 \
+              --max-replicas 1 \
+              --ingress internal \
+              --target-port 5432 \
+              --transport tcp \
+              --secrets "postgres-password=${POSTGRES_PASSWORD}" \
+              --env-vars \
+                "POSTGRES_USER=postgres" \
+                "POSTGRES_PASSWORD=secretref:postgres-password" \
+                "POSTGRES_DB=unconference" \
+              --output none
+            echo "✅ PostgreSQL container app created: $DB_APP_NAME"
+          else
+            echo "ℹ️  PostgreSQL container app already exists: $DB_APP_NAME"
+          fi
+
+      # ── Nuxt Container App ─────────────────────────────────────────────────
+      - name: Create Nuxt Container App
+        env:
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          NUXT_SESSION_PASSWORD: ${{ secrets.NUXT_SESSION_PASSWORD }}
+          NUXT_OAUTH_GITHUB_CLIENT_ID: ${{ secrets.NUXT_OAUTH_GITHUB_CLIENT_ID }}
+          NUXT_OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.NUXT_OAUTH_GITHUB_CLIENT_SECRET }}
+        run: |
+          if ! az containerapp show \
+               --name "$APP_NAME" \
+               --resource-group "$RESOURCE_GROUP" &>/dev/null; then
+            IDENTITY_ID=$(az identity show \
+              --name "$IDENTITY_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --query id -o tsv)
+            ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+
+            # Mask the full constructed URL so it doesn't appear in logs
+            DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@${DB_APP_NAME}:5432/unconference"
+            echo "::add-mask::${DATABASE_URL}"
+
+            az containerapp create \
+              --name "$APP_NAME" \
+              --resource-group "$RESOURCE_GROUP" \
+              --environment "$CAE_NAME" \
+              --image "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" \
+              --cpu 0.5 \
+              --memory 1Gi \
+              --min-replicas 1 \
+              --max-replicas 3 \
+              --ingress external \
+              --target-port 3000 \
+              --user-assigned "$IDENTITY_ID" \
+              --registry-server "$ACR_SERVER" \
+              --registry-identity "$IDENTITY_ID" \
+              --secrets \
+                "database-url=${DATABASE_URL}" \
+                "session-password=${NUXT_SESSION_PASSWORD}" \
+                "github-client-id=${NUXT_OAUTH_GITHUB_CLIENT_ID}" \
+                "github-client-secret=${NUXT_OAUTH_GITHUB_CLIENT_SECRET}" \
+              --env-vars \
+                "DATABASE_URL=secretref:database-url" \
+                "NUXT_SESSION_PASSWORD=secretref:session-password" \
+                "NUXT_OAUTH_GITHUB_CLIENT_ID=secretref:github-client-id" \
+                "NUXT_OAUTH_GITHUB_CLIENT_SECRET=secretref:github-client-secret" \
+                "AUTH_MODE=github" \
+                "NODE_ENV=production" \
+              --output none
+            echo "✅ Nuxt container app created: $APP_NAME"
+          else
+            echo "ℹ️  Nuxt container app already exists: $APP_NAME"
+          fi
+
+      # ── Summary ────────────────────────────────────────────────────────────
+      - name: Print Application URL
+        run: |
+          APP_FQDN=$(az containerapp show \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          ACR_SERVER=$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅  Infrastructure ready!"
+          echo ""
+          echo "  App URL  : https://${APP_FQDN}"
+          echo "  ACR      : ${ACR_SERVER}"
+          echo ""
+          echo "  Next steps:"
+          echo "  1. Set APP_URL secret to: https://${APP_FQDN}"
+          echo "     (used for invite links — add to Container App env vars)"
+          echo "  2. Update your GitHub OAuth app callback URL to:"
+          echo "     https://${APP_FQDN}/auth/github"
+          echo "  3. Push to main to trigger a deployment."
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
