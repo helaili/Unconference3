@@ -1,0 +1,1 @@
+ALTER TABLE "introduction_rounds" ADD COLUMN "room_ids" uuid[];

@@ -73,6 +73,11 @@ async function seed() {
     }
   }
 
+  const introRoundsData = loadJson('introduction-rounds.json')
+  if (introRoundsData.length > 0) {
+    await db.insert(schema.introductionRounds).values(introRoundsData)
+  }
+
   logger.success('Seeding complete!')
   await client.end()
 }

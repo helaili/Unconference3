@@ -16,6 +16,7 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
   -v round_rooms="$(cat /testdata/round-rooms.json)" \
   -v slots="$(cat /testdata/slots.json)" \
   -v slot_registrations="$(cat /testdata/slot-registrations.json)" \
+  -v introduction_rounds="$(cat /testdata/introduction-rounds.json)" \
   <<'EOSQL'
 
 INSERT INTO events (id, name, description, date, submission_restricted, min_stars, max_stars, default_discussion_duration, default_workshop_duration)
@@ -100,6 +101,15 @@ SELECT "slotId", "userId"
 FROM json_to_recordset(:'slot_registrations'::json)
   AS x("slotId" uuid, "userId" uuid)
 ON CONFLICT (slot_id, user_id) DO NOTHING;
+
+INSERT INTO introduction_rounds (id, event_id, num_slots, group_size, status)
+SELECT id, "eventId",
+  COALESCE("numSlots", 2),
+  COALESCE("groupSize", 10),
+  COALESCE(status, 'draft')::intro_round_status
+FROM json_to_recordset(:'introduction_rounds'::json)
+  AS x(id uuid, "eventId" uuid, "numSlots" integer, "groupSize" integer, status varchar)
+ON CONFLICT (id) DO NOTHING;
 
 EOSQL
 

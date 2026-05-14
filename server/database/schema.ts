@@ -12,6 +12,11 @@ import {
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
+// ── Introduction Round ────────────────────────────────────────────────────────
+export const introRoundStatusValues = ['draft', 'open', 'closed'] as const
+export type IntroRoundStatus = (typeof introRoundStatusValues)[number]
+export const introRoundStatusEnum = pgEnum('intro_round_status', introRoundStatusValues)
+
 // ── Enums ───────────────────────────────────────────────────────────────────
 export const roomTypeValues = ['workshop', 'meeting', 'both'] as const
 export type RoomType = (typeof roomTypeValues)[number]
@@ -51,6 +56,7 @@ export const eventsRelations = relations(events, ({ many }) => ({
   rooms: many(rooms),
   sessionStars: many(sessionStars),
   rounds: many(rounds),
+  introductionRound: many(introductionRounds),
 }))
 
 // ── Invitees ────────────────────────────────────────────────────────────────
@@ -293,4 +299,52 @@ export const slotRegistrations = pgTable(
 export const slotRegistrationsRelations = relations(slotRegistrations, ({ one }) => ({
   slot: one(slots, { fields: [slotRegistrations.slotId], references: [slots.id] }),
   user: one(users, { fields: [slotRegistrations.userId], references: [users.id] }),
+}))
+
+// ── Introduction Rounds ───────────────────────────────────────────────────────
+export const introductionRounds = pgTable('introduction_rounds', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id')
+    .notNull()
+    .unique()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  numSlots: integer('num_slots').notNull().default(2),
+  groupSize: integer('group_size').notNull().default(10),
+  roomIds: uuid('room_ids').array(),
+  status: introRoundStatusEnum('status').notNull().default('draft'),
+  createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
+})
+
+export const introductionRoundsRelations = relations(introductionRounds, ({ one, many }) => ({
+  event: one(events, { fields: [introductionRounds.eventId], references: [events.id] }),
+  assignments: many(introductionSlotAssignments),
+}))
+
+// ── Introduction Slot Assignments ──────────────────────────────────────────────
+export const introductionSlotAssignments = pgTable(
+  'introduction_slot_assignments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    introRoundId: uuid('intro_round_id')
+      .notNull()
+      .references(() => introductionRounds.id, { onDelete: 'cascade' }),
+    slotIndex: integer('slot_index').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+  },
+  (t) => [unique().on(t.introRoundId, t.slotIndex, t.userId)],
+)
+
+export const introductionSlotAssignmentsRelations = relations(introductionSlotAssignments, ({ one }) => ({
+  introRound: one(introductionRounds, {
+    fields: [introductionSlotAssignments.introRoundId],
+    references: [introductionRounds.id],
+  }),
+  user: one(users, { fields: [introductionSlotAssignments.userId], references: [users.id] }),
+  room: one(rooms, { fields: [introductionSlotAssignments.roomId], references: [rooms.id] }),
 }))
