@@ -30,6 +30,8 @@ export async function migrateAndSeed() {
     DROP TABLE IF EXISTS user_events CASCADE;
     DROP TABLE IF EXISTS invitations CASCADE;
     DROP TABLE IF EXISTS invitees CASCADE;
+    DROP TABLE IF EXISTS introduction_slot_assignments CASCADE;
+    DROP TABLE IF EXISTS introduction_rounds CASCADE;
     DROP TABLE IF EXISTS users CASCADE;
     DROP TABLE IF EXISTS events CASCADE;
     DROP TYPE IF EXISTS round_status;
@@ -37,6 +39,7 @@ export async function migrateAndSeed() {
     DROP TYPE IF EXISTS session_type;
     DROP TYPE IF EXISTS session_status;
     DROP TYPE IF EXISTS invitee_role;
+    DROP TYPE IF EXISTS intro_round_status;
   `)
 
   const migrationsDir = resolve(__dirname, '../../drizzle')
@@ -109,6 +112,11 @@ export async function migrateAndSeed() {
     }
   }
 
+  const introRoundsFixture = loadJson('introduction-rounds.json')
+  if (introRoundsFixture.length > 0) {
+    await db.insert(schema.introductionRounds).values(introRoundsFixture)
+  }
+
   await client.end()
 }
 
@@ -154,7 +162,13 @@ export const STAFF_USER_EMAIL = 'liam.obrien@example.com'
 export const PARTICIPANT_USER_EMAIL = 'noah.williams@example.com'
 export const OUTSIDER_EMAIL = 'test@example.com' // valid user but NOT in the test event's invitees
 
-// Round fixture IDs
+// Sessions assigned to slots in Round 2 (assigned round)
+export const TEST_SESSION_IN_ASSIGNED_ROUND_1 = 'd0000000-0000-0000-0000-000000000002' // published
+export const TEST_SESSION_IN_ASSIGNED_ROUND_2 = 'd0000000-0000-0000-0000-000000000007' // scheduled
+export const TEST_SESSION_IN_ASSIGNED_ROUND_3 = 'd0000000-0000-0000-0000-000000000008' // published
+// Sessions assigned to slots in Round 3 (open round)
+export const TEST_SESSION_IN_OPEN_ROUND_1 = 'd0000000-0000-0000-0000-000000000009' // scheduled
+export const TEST_SESSION_IN_OPEN_ROUND_2 = 'd0000000-0000-0000-0000-000000000012' // scheduled
 export const TEST_ROUND_DRAFT_ID = 'aa000000-0000-0000-0000-000000000001'
 export const TEST_ROUND_ASSIGNED_ID = 'aa000000-0000-0000-0000-000000000002'
 export const TEST_ROUND_OPEN_ID = 'aa000000-0000-0000-0000-000000000003'
