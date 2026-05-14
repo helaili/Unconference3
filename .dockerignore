@@ -1,0 +1,14 @@
+.git
+.github
+.azure
+.nuxt
+.output
+.data
+node_modules
+test
+tests
+playwright-report
+*.test.ts
+.env
+.env.*
+!.env.example
