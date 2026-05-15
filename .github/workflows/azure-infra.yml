@@ -222,7 +222,8 @@ jobs:
                 "NUXT_SESSION_PASSWORD=secretref:session-password" \
                 "NUXT_OAUTH_GITHUB_CLIENT_ID=secretref:github-client-id" \
                 "NUXT_OAUTH_GITHUB_CLIENT_SECRET=secretref:github-client-secret" \
-                "AUTH_MODE=github" \
+                "AUTH_MODE=local" \
+                "ADMIN_GITHUB_LOGINS=helaili" \
                 "NODE_ENV=production" \
               --output none
             echo "✅ Nuxt container app created: $APP_NAME"
