@@ -22,6 +22,14 @@ on:
         description: 'Container Apps Environment name'
         required: true
         default: 'cae-unconference'
+      auth_mode:
+        description: 'Authentication mode (github or local)'
+        required: true
+        default: 'github'
+        type: choice
+        options:
+          - github
+          - local
 
 permissions:
   id-token: write
@@ -36,6 +44,7 @@ jobs:
       LOCATION: ${{ github.event.inputs.location }}
       ACR_NAME: ${{ github.event.inputs.acr_name }}
       CAE_NAME: ${{ github.event.inputs.environment_name }}
+      AUTH_MODE: ${{ github.event.inputs.auth_mode }}
       APP_NAME: unconference-app
       DB_APP_NAME: unconference-db
       IDENTITY_NAME: id-unconference
@@ -222,7 +231,7 @@ jobs:
                 "NUXT_SESSION_PASSWORD=secretref:session-password" \
                 "NUXT_OAUTH_GITHUB_CLIENT_ID=secretref:github-client-id" \
                 "NUXT_OAUTH_GITHUB_CLIENT_SECRET=secretref:github-client-secret" \
-                "AUTH_MODE=local" \
+                "AUTH_MODE=${AUTH_MODE}" \
                 "ADMIN_GITHUB_LOGINS=helaili" \
                 "NODE_ENV=production" \
               --output none
@@ -230,6 +239,14 @@ jobs:
           else
             echo "ℹ️  Nuxt container app already exists: $APP_NAME"
           fi
+
+          # Always sync AUTH_MODE so re-running the workflow applies changes to existing apps
+          az containerapp update \
+            --name "$APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --set-env-vars "AUTH_MODE=${AUTH_MODE}" \
+            --output none
+          echo "✅ AUTH_MODE set to '${AUTH_MODE}' on $APP_NAME"
 
       # ── Summary ────────────────────────────────────────────────────────────
       - name: Print Application URL
