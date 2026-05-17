@@ -190,6 +190,98 @@ async function inviteAll() {
   }
 }
 
+// Import dialog
+const importDialog = ref(false)
+const importPasteText = ref('')
+const importRegister = ref(false)
+const importPassword = ref('EurocatsBBVA2026')
+const importRole = ref<InviteeRole>('participant')
+const importing = ref(false)
+
+interface ParsedRow {
+  fullName: string
+  firstName: string
+  lastName: string
+  email: string
+  valid: boolean
+  error?: string
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim().replace(/\s+/g, ' ')
+  const spaceIdx = trimmed.indexOf(' ')
+  if (spaceIdx === -1) return { firstName: '', lastName: trimmed }
+  return { firstName: trimmed.slice(0, spaceIdx), lastName: trimmed.slice(spaceIdx + 1) }
+}
+
+const parsedImportRows = computed<ParsedRow[]>(() => {
+  if (!importPasteText.value.trim()) return []
+  const lines = importPasteText.value.split('\n').map(l => l.trim()).filter(Boolean)
+  const seen = new Set<string>()
+  return lines.map((line) => {
+    const parts = line.split('\t')
+    const fullName = (parts[0] ?? '').trim()
+    const email = (parts[1] ?? '').trim().toLowerCase()
+
+    if (!fullName) return { fullName, firstName: '', lastName: '', email, valid: false, error: 'Missing name' }
+    if (!email) return { fullName, firstName: '', lastName: '', email, valid: false, error: 'Missing email' }
+    if (!/.+@.+\..+/.test(email)) return { fullName, firstName: '', lastName: '', email, valid: false, error: 'Invalid email' }
+    if (seen.has(email)) return { fullName, firstName: '', lastName: '', email, valid: false, error: 'Duplicate email' }
+    seen.add(email)
+
+    const { firstName, lastName } = splitName(fullName)
+    if (!lastName) return { fullName, firstName, lastName, email, valid: false, error: 'Cannot parse name' }
+
+    return { fullName, firstName, lastName, email, valid: true }
+  })
+})
+
+const validImportRows = computed(() => parsedImportRows.value.filter(r => r.valid))
+const canImport = computed(() =>
+  validImportRows.value.length > 0
+  && (!importRegister.value || importPassword.value.length >= 8),
+)
+
+function openImportDialog() {
+  importPasteText.value = ''
+  importRegister.value = false
+  importPassword.value = 'EurocatsBBVA2026'
+  importRole.value = 'participant'
+  importDialog.value = true
+}
+
+async function submitImport() {
+  if (!canImport.value) return
+  importing.value = true
+  try {
+    const result = await $fetch<{ imported: number; skipped: number; registered: number }>(
+      `/api/events/${eventId}/invitees/import`,
+      {
+        method: 'POST',
+        body: {
+          participants: validImportRows.value.map(r => ({ fullName: r.fullName, email: r.email })),
+          role: importRole.value,
+          registerParticipants: importRegister.value,
+          defaultPassword: importRegister.value ? importPassword.value : undefined,
+        },
+      },
+    )
+    const msg = `Imported ${result.imported} participant(s)`
+      + (result.skipped > 0 ? `, ${result.skipped} skipped (already exist)` : '')
+      + (result.registered > 0 ? `, ${result.registered} registered` : '')
+    showSnackbar(msg)
+    importDialog.value = false
+    await refresh()
+  }
+  catch (err: unknown) {
+    const message = (err as { data?: { message?: string } })?.data?.message || 'Import failed'
+    showSnackbar(message, 'error')
+  }
+  finally {
+    importing.value = false
+  }
+}
+
 // Delete
 const deleteDialog = ref(false)
 const deletingInvitee = ref<Invitee | null>(null)
@@ -234,6 +326,13 @@ async function deleteInvitee() {
           @click="inviteAll"
         >
           Invite All
+        </v-btn>
+        <v-btn
+          color="teal"
+          prepend-icon="mdi-table-arrow-right"
+          @click="openImportDialog"
+        >
+          Import
         </v-btn>
         <v-btn
           color="primary"
@@ -380,6 +479,96 @@ async function deleteInvitee() {
             @click="deleteInvitee"
           >
             Delete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Import Dialog -->
+    <v-dialog v-model="importDialog" max-width="800">
+      <v-card>
+        <v-card-title>Import Participants</v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">
+            Paste two columns copied from Excel: <strong>Full Name</strong> (tab) <strong>Email</strong> — one row per line.
+          </p>
+          <v-textarea
+            v-model="importPasteText"
+            label="Paste Excel data here"
+            placeholder="John Doe	john@example.com
+Jane Smith	jane@example.com"
+            rows="6"
+            variant="outlined"
+            class="mb-3"
+          />
+
+          <div v-if="parsedImportRows.length > 0" class="mb-4">
+            <p class="text-subtitle-2 mb-2">
+              Preview — {{ validImportRows.length }} valid / {{ parsedImportRows.length - validImportRows.length }} invalid
+            </p>
+            <v-table density="compact" class="border rounded">
+              <thead>
+                <tr>
+                  <th>First Name</th>
+                  <th>Last Name</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(row, i) in parsedImportRows"
+                  :key="i"
+                  :class="row.valid ? '' : 'bg-red-lighten-5'"
+                >
+                  <td>{{ row.firstName }}</td>
+                  <td>{{ row.lastName }}</td>
+                  <td>{{ row.email }}</td>
+                  <td>
+                    <v-chip v-if="row.valid" color="green" size="x-small">OK</v-chip>
+                    <v-chip v-else color="error" size="x-small" :title="row.error">{{ row.error }}</v-chip>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </div>
+
+          <v-select
+            v-model="importRole"
+            :items="roleOptions"
+            item-title="title"
+            item-value="value"
+            label="Role"
+            class="mb-3"
+          />
+
+          <v-switch
+            v-model="importRegister"
+            label="Register participants immediately (create accounts with default password)"
+            color="primary"
+            class="mb-2"
+          />
+
+          <v-text-field
+            v-if="importRegister"
+            v-model="importPassword"
+            label="Default Password"
+            :rules="[(v: string) => v.length >= 8 || 'Password must be at least 8 characters']"
+            class="mb-2"
+          />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="importDialog = false">
+            Cancel
+          </v-btn>
+          <v-btn
+            color="teal"
+            :loading="importing"
+            :disabled="!canImport"
+            @click="submitImport"
+          >
+            Import {{ validImportRows.length > 0 ? `(${validImportRows.length})` : '' }}
           </v-btn>
         </v-card-actions>
       </v-card>
