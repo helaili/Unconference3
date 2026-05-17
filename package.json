@@ -11,6 +11,7 @@
     "test": "vitest",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "npx tsx server/database/seed.ts",
+    "db:seed:prod": "node /app/server/database/seed.mjs",
     "db:reset": "docker compose down -v && docker compose up -d && sleep 3",
     "test:watch": "vitest --watch",
     "test:unit": "vitest --project unit",
