@@ -5,9 +5,9 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
 
   runtimeConfig: {
-    authMode: process.env.AUTH_MODE || 'github',
+    authMode: process.env.AUTH_MODE || 'local',
     public: {
-      authMode: process.env.AUTH_MODE || 'github',
+      authMode: process.env.AUTH_MODE || 'local',
     },
   },
 
