@@ -132,7 +132,7 @@ describe('Invitees Import Endpoint', async () => {
 
   // ─── Happy path ───────────────────────────────────────────────────
 
-  it('imports new invitees successfully as admin', async () => {
+  it('imports new invitees successfully as admin with default role (participant)', async () => {
     const res = await fetch(IMPORT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
@@ -153,7 +153,7 @@ describe('Invitees Import Endpoint', async () => {
     const listRes = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
       headers: { Cookie: adminCookies },
     })
-    const list = await listRes.json() as Array<{ email: string; firstName: string; lastName: string }>
+    const list = await listRes.json() as Array<{ email: string; firstName: string; lastName: string; role: string }>
     const emails = list.map(i => i.email)
     expect(emails).toContain('imported.one@example.com')
     expect(emails).toContain('imported.two@example.com')
@@ -161,6 +161,72 @@ describe('Invitees Import Endpoint', async () => {
     const one = list.find(i => i.email === 'imported.one@example.com')
     expect(one?.firstName).toBe('Imported')
     expect(one?.lastName).toBe('One')
+    expect(one?.role).toBe('participant')
+  })
+
+  it('imports invitees with a specified role (staff)', async () => {
+    const res = await fetch(IMPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+      body: JSON.stringify({
+        participants: [
+          { fullName: 'Staff Member', email: 'staff.member@example.com' },
+        ],
+        role: 'staff',
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { imported: number }
+    expect(body.imported).toBe(1)
+
+    const listRes = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+      headers: { Cookie: adminCookies },
+    })
+    const list = await listRes.json() as Array<{ email: string; role: string }>
+    const entry = list.find(i => i.email === 'staff.member@example.com')
+    expect(entry?.role).toBe('staff')
+  })
+
+  it('imports invitees with a specified role (moderator)', async () => {
+    const res = await fetch(IMPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+      body: JSON.stringify({
+        participants: [
+          { fullName: 'Moderator User', email: 'moderator.user@example.com' },
+        ],
+        role: 'moderator',
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { imported: number }
+    expect(body.imported).toBe(1)
+
+    const listRes = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+      headers: { Cookie: adminCookies },
+    })
+    const list = await listRes.json() as Array<{ email: string; role: string }>
+    const entry = list.find(i => i.email === 'moderator.user@example.com')
+    expect(entry?.role).toBe('moderator')
+  })
+
+  it('falls back to participant role when an invalid role is provided', async () => {
+    const res = await fetch(IMPORT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+      body: JSON.stringify({
+        participants: [{ fullName: 'Bad Role User', email: 'bad.role@example.com' }],
+        role: 'superadmin',
+      }),
+    })
+    expect(res.status).toBe(200)
+
+    const listRes = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+      headers: { Cookie: adminCookies },
+    })
+    const list = await listRes.json() as Array<{ email: string; role: string }>
+    const entry = list.find(i => i.email === 'bad.role@example.com')
+    expect(entry?.role).toBe('participant')
   })
 
   it('allows staff to import invitees', async () => {
