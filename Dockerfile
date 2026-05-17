@@ -16,6 +16,12 @@ RUN node_modules/.bin/esbuild server/database/migrate.ts \
     --external:postgres --external:drizzle-orm \
     --outfile=server/database/migrate.mjs
 
+# Bundle the seed script the same way.
+RUN node_modules/.bin/esbuild server/database/seed.ts \
+    --bundle --platform=node --format=esm \
+    --external:postgres --external:drizzle-orm \
+    --outfile=server/database/seed.mjs
+
 # ── Production stage ───────────────────────────────────────────────────────────
 FROM node:22-slim AS runner
 WORKDIR /app
@@ -31,7 +37,9 @@ COPY --from=builder /app/.output ./.output
 # Migration script (placed at the same relative depth as the source so the
 # bundled __dirname-based path ../../drizzle resolves to /app/drizzle).
 COPY --from=builder /app/server/database/migrate.mjs ./server/database/migrate.mjs
+COPY --from=builder /app/server/database/seed.mjs ./server/database/seed.mjs
 COPY drizzle ./drizzle
+COPY test/db ./test/db
 
 EXPOSE 3000
 ENV PORT=3000
