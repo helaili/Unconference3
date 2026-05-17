@@ -5,7 +5,9 @@
 .output
 .data
 node_modules
-test
+test/*
+!test/db
+!test/db/**
 tests
 playwright-report
 *.test.ts
