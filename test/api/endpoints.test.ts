@@ -392,6 +392,62 @@ describe('Events Endpoints', async () => {
       const invitee = await res.json() as Record<string, unknown>
       expect(invitee.role).toBe('staff')
     })
+
+    it('returns 400 when registerParticipant is true but no password provided', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Reg',
+          lastName: 'NoPass',
+          email: 'reg.nopass@example.com',
+          registerParticipant: true,
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 when registerParticipant is true but password is too short', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Reg',
+          lastName: 'ShortPass',
+          email: 'reg.shortpass@example.com',
+          registerParticipant: true,
+          defaultPassword: 'short',
+        }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('creates invitee and registers user when registerParticipant is true', async () => {
+      const res = await fetch(`/api/events/${TEST_EVENT_ID}/invitees`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName: 'Registered',
+          lastName: 'Manual',
+          email: 'registered.manual@example.com',
+          registerParticipant: true,
+          defaultPassword: 'EurocatsBBVA2026',
+        }),
+      })
+      expect(res.status).toBe(200)
+      const invitee = await res.json() as Record<string, unknown>
+      expect(invitee.firstName).toBe('Registered')
+      expect(invitee.email).toBe('registered.manual@example.com')
+      expect(invitee.registered).toBe(true)
+
+      // The registered user can log in with the default password
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'registered.manual@example.com', password: 'EurocatsBBVA2026' }),
+      })
+      expect(loginRes.status).toBe(200)
+    })
   })
 
   describe('PUT /api/events/:eventId/invitees/:id', () => {
