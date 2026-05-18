@@ -82,7 +82,7 @@ function getInvitationStatus(invitee: Invitee): { label: string; color: string }
 // Dialog state
 const dialog = ref(false)
 const editingInvitee = ref<Invitee | null>(null)
-const form = ref({ firstName: '', lastName: '', email: '', role: 'participant' as InviteeRole })
+const form = ref({ firstName: '', lastName: '', email: '', role: 'participant' as InviteeRole, registerParticipant: false, defaultPassword: 'EurocatsBBVA2026' })
 const formValid = ref(false)
 const saving = ref(false)
 
@@ -96,7 +96,7 @@ const rules = {
 
 function openAddDialog() {
   editingInvitee.value = null
-  form.value = { firstName: '', lastName: '', email: '', role: 'participant' }
+  form.value = { firstName: '', lastName: '', email: '', role: 'participant', registerParticipant: false, defaultPassword: 'EurocatsBBVA2026' }
   dialog.value = true
 }
 
@@ -107,6 +107,8 @@ function openEditDialog(invitee: Invitee) {
     lastName: invitee.lastName,
     email: invitee.email,
     role: invitee.role,
+    registerParticipant: false,
+    defaultPassword: 'EurocatsBBVA2026',
   }
   dialog.value = true
 }
@@ -129,15 +131,22 @@ async function saveInvitee() {
     if (editingInvitee.value) {
       await $fetch(`/api/events/${eventId}/invitees/${editingInvitee.value.id}`, {
         method: 'PUT',
-        body: form.value,
+        body: { firstName: form.value.firstName, lastName: form.value.lastName, email: form.value.email, role: form.value.role },
       })
       showSnackbar('Invitee updated successfully')
     }
     else {
-      await $fetch(`/api/events/${eventId}/invitees`, {
-        method: 'POST',
-        body: form.value,
-      })
+      const body: Record<string, unknown> = {
+        firstName: form.value.firstName,
+        lastName: form.value.lastName,
+        email: form.value.email,
+        role: form.value.role,
+      }
+      if (form.value.registerParticipant) {
+        body.registerParticipant = true
+        body.defaultPassword = form.value.defaultPassword
+      }
+      await $fetch(`/api/events/${eventId}/invitees`, { method: 'POST', body })
       showSnackbar('Invitee added successfully')
     }
     dialog.value = false
@@ -440,6 +449,22 @@ async function deleteInvitee() {
               item-title="title"
               item-value="value"
             />
+
+            <template v-if="!editingInvitee">
+              <v-switch
+                v-model="form.registerParticipant"
+                label="Register participant immediately (create account with default password)"
+                color="primary"
+                class="mt-2 mb-1"
+              />
+              <v-text-field
+                v-if="form.registerParticipant"
+                v-model="form.defaultPassword"
+                label="Default Password"
+                :rules="[(v: string) => v.length >= 8 || 'Password must be at least 8 characters']"
+                class="mb-2"
+              />
+            </template>
           </v-form>
         </v-card-text>
         <v-card-actions>
