@@ -431,7 +431,7 @@ describe('Rounds Endpoints', async () => {
       const afterReset = await fetch(`${BASE}/${id}`, { headers: { Cookie: adminCookies } })
       const afterResetBody = await afterReset.json()
       expect(afterResetBody.slots.length).toBe(0)
-      expect(afterResetBody.rooms.length).toBeGreaterThan(0)
+      expect(afterResetBody.enabledRooms.length).toBeGreaterThan(0)
 
       // Re-assign should produce slots and participants (rooms still configured)
       const secondAssign = await fetch(`${BASE}/${id}/assign`, {
