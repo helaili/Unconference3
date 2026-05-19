@@ -1,5 +1,5 @@
 import { eq, and, inArray } from 'drizzle-orm'
-import { rounds, roundRooms, slots, slotRegistrations } from '~/server/database/schema'
+import { rounds, slots, slotRegistrations } from '~/server/database/schema'
 
 export default defineEventHandler(async (event) => {
   const eventId = getRouterParam(event, 'eventId')
@@ -33,8 +33,6 @@ export default defineEventHandler(async (event) => {
     await db.delete(slotRegistrations).where(inArray(slotRegistrations.slotId, slotIds))
     await db.delete(slots).where(eq(slots.roundId, roundId))
   }
-
-  await db.delete(roundRooms).where(eq(roundRooms.roundId, roundId))
 
   const [updated] = await db
     .update(rounds)

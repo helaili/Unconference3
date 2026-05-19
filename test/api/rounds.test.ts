@@ -381,6 +381,78 @@ describe('Rounds Endpoints', async () => {
     })
   })
 
+  // ─── POST /rounds/[roundId]/reset ─────────────────────────────────────────
+
+  describe('POST /api/events/[eventId]/rounds/[roundId]/reset', () => {
+    it('returns 401 for unauthenticated request', async () => {
+      const res = await fetch(`${ASSIGNED_ROUND}/reset`, { method: 'POST' })
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 403 for non-admin user', async () => {
+      const res = await fetch(`${ASSIGNED_ROUND}/reset`, { method: 'POST', headers: { Cookie: userCookies } })
+      expect(res.status).toBe(403)
+    })
+
+    it('reset clears slots/registrations, keeps rooms, and re-assign produces slots and participants', async () => {
+      // Create a fresh round and configure rooms
+      const create = await fetch(BASE, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ duration: 75, minParticipants: 0 }),
+      })
+      const { id } = await create.json()
+
+      // Assign rooms
+      await fetch(`${BASE}/${id}/rooms`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Cookie: adminCookies },
+        body: JSON.stringify({ roomIds: [TEST_ROOM_MEETING_1_ID] }),
+      })
+
+      // First assignment
+      const firstAssign = await fetch(`${BASE}/${id}/assign`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+      expect(firstAssign.status).toBe(200)
+      expect((await firstAssign.json()).status).toBe('assigned')
+
+      // Reset
+      const reset = await fetch(`${BASE}/${id}/reset`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+      expect(reset.status).toBe(200)
+      const resetBody = await reset.json()
+      expect(resetBody.status).toBe('draft')
+
+      // Verify slots are cleared but room config is preserved
+      const afterReset = await fetch(`${BASE}/${id}`, { headers: { Cookie: adminCookies } })
+      const afterResetBody = await afterReset.json()
+      expect(afterResetBody.slots.length).toBe(0)
+      expect(afterResetBody.enabledRooms.length).toBeGreaterThan(0)
+
+      // Re-assign should produce slots and participants (rooms still configured)
+      const secondAssign = await fetch(`${BASE}/${id}/assign`, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+      expect(secondAssign.status).toBe(200)
+      const secondBody = await secondAssign.json()
+      expect(secondBody.status).toBe('assigned')
+
+      const detail = await fetch(`${BASE}/${id}`, { headers: { Cookie: adminCookies } })
+      const detailBody = await detail.json()
+      const assignedSlots = detailBody.slots.filter((s: { sessionId: string | null }) => s.sessionId !== null)
+      expect(assignedSlots.length).toBeGreaterThan(0)
+      const slotsWithParticipants = detailBody.slots.filter((s: { registrations: unknown[] }) => s.registrations.length > 0)
+      expect(slotsWithParticipants.length).toBeGreaterThan(0)
+
+      await fetch(`${BASE}/${id}`, { method: 'DELETE', headers: { Cookie: adminCookies } })
+    })
+  })
+
   // ─── GET /rounds/[roundId]/schedule ──────────────────────────────────────
 
   describe('GET /api/events/[eventId]/rounds/[roundId]/schedule', () => {
