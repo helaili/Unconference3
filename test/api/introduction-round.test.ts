@@ -6,6 +6,7 @@ import {
   loginAs,
   ADMIN_EMAIL,
   REGULAR_USER_EMAIL,
+  PARTICIPANT_USER_EMAIL,
   TEST_EVENT_ID,
 } from './helpers'
 
@@ -14,6 +15,7 @@ const BASE = `/api/events/${TEST_EVENT_ID}/introduction-round`
 describe('Introduction Round Endpoints', async () => {
   let adminCookies: string
   let userCookies: string
+  let participantCookies: string
 
   await setup({
     rootDir: fileURLToPath(new URL('../..', import.meta.url)),
@@ -33,6 +35,7 @@ describe('Introduction Round Endpoints', async () => {
     await migrateAndSeed()
     adminCookies = await loginAs(fetch, ADMIN_EMAIL)
     userCookies = await loginAs(fetch, REGULAR_USER_EMAIL)
+    participantCookies = await loginAs(fetch, PARTICIPANT_USER_EMAIL)
   })
 
   // ─── GET (no round yet) ──────────────────────────────────────────────────────
@@ -190,7 +193,7 @@ describe('Introduction Round Endpoints', async () => {
 
   describe('GET /api/events/[eventId]/introduction-round (open)', () => {
     it('returns 200 for participant with their own assignments', async () => {
-      const res = await fetch(BASE, { headers: { Cookie: userCookies } })
+      const res = await fetch(BASE, { headers: { Cookie: participantCookies } })
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.status).toBe('open')
@@ -200,10 +203,19 @@ describe('Introduction Round Endpoints', async () => {
     })
 
     it('participant does not see other participants assignments', async () => {
-      const res = await fetch(BASE, { headers: { Cookie: userCookies } })
+      const res = await fetch(BASE, { headers: { Cookie: participantCookies } })
       const body = await res.json()
       // Participant view has myAssignments, not slots
       expect(body.slots).toBeUndefined()
+    })
+
+    it('moderator is excluded from introduction round assignments', async () => {
+      const res = await fetch(BASE, { headers: { Cookie: userCookies } })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      // Moderator has no assignments since they are excluded from dispatch
+      expect(Array.isArray(body.myAssignments)).toBe(true)
+      expect(body.myAssignments.length).toBe(0)
     })
 
     it('assignments satisfy no-same-domain-in-same-room constraint (best-effort)', async () => {

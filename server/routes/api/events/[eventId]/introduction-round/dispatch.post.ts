@@ -1,5 +1,5 @@
-import { eq, and, inArray } from 'drizzle-orm'
-import { events, introductionRounds, introductionSlotAssignments, userEvents, users, rooms } from '~/server/database/schema'
+import { eq, and, inArray, or, isNull } from 'drizzle-orm'
+import { events, introductionRounds, introductionSlotAssignments, userEvents, users, invitees, rooms } from '~/server/database/schema'
 import { dispatchIntroductionRound } from '~/server/utils/introductionAlgorithm'
 
 const logger = useLogger('introduction-round')
@@ -29,12 +29,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'No introduction round configured for this event' })
   }
 
-  // Fetch registered participants (users with user_events records for this event)
+  // Fetch registered participants, excluding moderators and staff
   const participantRows = await db
     .select({ userId: users.id, email: users.email })
     .from(userEvents)
     .innerJoin(users, eq(userEvents.userId, users.id))
-    .where(and(eq(userEvents.eventId, eventId)))
+    .leftJoin(invitees, and(eq(invitees.email, users.email), eq(invitees.eventId, eventId)))
+    .where(and(
+      eq(userEvents.eventId, eventId),
+      or(isNull(invitees.role), eq(invitees.role, 'participant')),
+    ))
 
   if (participantRows.length === 0) {
     throw createError({ statusCode: 400, statusMessage: 'No registered participants found for this event' })
