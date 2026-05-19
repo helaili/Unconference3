@@ -33,6 +33,25 @@ const { data: rounds, status: fetchStatus, refresh } = useAsyncData(
   () => $fetch<RoundItem[]>(`/api/events/${eventId}/rounds`),
 )
 
+// ── Clear all assignments ─────────────────────────────────────────────────────
+const clearDialog = ref(false)
+const clearing = ref(false)
+const clearError = ref('')
+
+async function confirmClearAssignments() {
+  clearing.value = true
+  clearError.value = ''
+  try {
+    await $fetch(`/api/events/${eventId}/rounds/clear-assignments`, { method: 'POST' })
+    clearDialog.value = false
+    await refresh()
+  } catch (err: unknown) {
+    clearError.value = (err as { data?: { message?: string } })?.data?.message ?? 'Failed to clear assignments'
+  } finally {
+    clearing.value = false
+  }
+}
+
 // ── Create / Edit dialog ──────────────────────────────────────────────────────
 const dialog = ref(false)
 const deleteDialog = ref(false)
@@ -138,9 +157,20 @@ async function confirmDelete() {
 
     <div class="d-flex align-center justify-space-between mb-4">
       <h2 class="text-h6">Rounds</h2>
-      <v-btn color="deep-purple" prepend-icon="mdi-plus" @click="openCreate">
-        New Round
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          v-if="rounds && rounds.length > 0"
+          color="error"
+          variant="outlined"
+          prepend-icon="mdi-database-remove-outline"
+          @click="clearDialog = true"
+        >
+          Clear All Assignments
+        </v-btn>
+        <v-btn color="deep-purple" prepend-icon="mdi-plus" @click="openCreate">
+          New Round
+        </v-btn>
+      </div>
     </div>
 
     <v-progress-linear v-if="fetchStatus === 'pending'" indeterminate color="deep-purple" class="mb-4" />
@@ -286,5 +316,29 @@ async function confirmDelete() {
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <!-- Clear All Assignments Confirmation Dialog -->
+    <v-dialog v-model="clearDialog" max-width="480">
+      <v-card>
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon color="error">mdi-database-remove-outline</v-icon>
+          Clear All Assignments
+        </v-card-title>
+        <v-card-text>
+          <v-alert v-if="clearError" type="error" variant="tonal" class="mb-3">
+            {{ clearError }}
+          </v-alert>
+          This will delete all slots and participant registrations for <strong>every round</strong> in this event
+          and reset all rounds to <strong>draft</strong> status.
+          <br /><br />
+          Use this to recover from a broken assignment state. This action cannot be undone.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="clearing" @click="clearDialog = false">Cancel</v-btn>
+          <v-btn color="error" :loading="clearing" @click="confirmClearAssignments">Clear All Assignments</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
   </div>
 </template>
