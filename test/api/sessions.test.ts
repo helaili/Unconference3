@@ -768,4 +768,78 @@ describe('Sessions Endpoints', async () => {
       expect(res.status).toBe(400)
     })
   })
+
+  // ─── POST /sessions/publish-scheduled ────────────────────────────────────
+  describe('POST /api/events/[eventId]/sessions/publish-scheduled', () => {
+    const PUBLISH_URL = `${BASE}/publish-scheduled`
+
+    it('returns 401 for unauthenticated request', async () => {
+      const res = await fetch(PUBLISH_URL, { method: 'POST' })
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 403 for non-admin users', async () => {
+      const res = await fetch(PUBLISH_URL, {
+        method: 'POST',
+        headers: { Cookie: noahCookies },
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('returns 403 for staff users', async () => {
+      const res = await fetch(PUBLISH_URL, {
+        method: 'POST',
+        headers: { Cookie: staffCookies },
+      })
+      expect(res.status).toBe(403)
+    })
+
+    it('publishes all scheduled sessions and returns count', async () => {
+      // Verify there are scheduled sessions before the call
+      const beforeRes = await fetch(`${BASE}?status=scheduled`, {
+        headers: { Cookie: adminCookies },
+      })
+      const before = await beforeRes.json() as { status: string }[]
+      const scheduledBefore = before.filter(s => s.status === 'scheduled').length
+      expect(scheduledBefore).toBeGreaterThan(0)
+
+      const res = await fetch(PUBLISH_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json() as { published: number }
+      expect(body.published).toBe(scheduledBefore)
+
+      // Verify no scheduled sessions remain
+      const afterRes = await fetch(`${BASE}?status=scheduled`, {
+        headers: { Cookie: adminCookies },
+      })
+      const after = await afterRes.json() as { status: string }[]
+      expect(after.filter(s => s.status === 'scheduled').length).toBe(0)
+
+      // Restore scheduled sessions for subsequent tests
+      await migrateAndSeed()
+    })
+
+    it('returns 0 when there are no scheduled sessions', async () => {
+      // First call publishes all scheduled sessions
+      await fetch(PUBLISH_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+
+      // Second call should find nothing to publish
+      const res = await fetch(PUBLISH_URL, {
+        method: 'POST',
+        headers: { Cookie: adminCookies },
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json() as { published: number }
+      expect(body.published).toBe(0)
+
+      // Restore for other tests
+      await migrateAndSeed()
+    })
+  })
 })

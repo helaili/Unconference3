@@ -174,6 +174,35 @@ function effectiveDuration(session: SessionItem): string {
   return `${def} min (default)`
 }
 
+// ── Publish Scheduled ─────────────────────────────────────────────────────────
+const publishScheduledDialog = ref(false)
+const publishingScheduled = ref(false)
+const publishScheduledError = ref('')
+const publishScheduledCount = ref<number | null>(null)
+
+const scheduledCount = computed(
+  () => allSessions.value?.filter(s => s.status === 'scheduled').length ?? 0,
+)
+
+async function confirmPublishScheduled() {
+  publishingScheduled.value = true
+  publishScheduledError.value = ''
+  try {
+    const result = await $fetch<{ published: number }>(
+      `/api/events/${eventId}/sessions/publish-scheduled`,
+      { method: 'POST' },
+    )
+    publishScheduledCount.value = result.published
+    publishScheduledDialog.value = false
+    await refresh()
+  } catch (err: unknown) {
+    publishScheduledError.value = (err as { data?: { message?: string } })?.data?.message
+      ?? 'Failed to publish sessions'
+  } finally {
+    publishingScheduled.value = false
+  }
+}
+
 const deleteDialog = ref(false)
 const deletingSession = ref<SessionItem | null>(null)
 const deleting = ref(false)
@@ -210,10 +239,31 @@ async function confirmDelete() {
 
     <div class="d-flex align-center justify-space-between mb-4">
       <h2 class="text-h6">Sessions</h2>
-      <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">
-        Create Session
-      </v-btn>
+      <div class="d-flex ga-2">
+        <v-btn
+          color="green"
+          prepend-icon="mdi-publish"
+          :disabled="scheduledCount === 0"
+          @click="publishScheduledDialog = true; publishScheduledError = ''; publishScheduledCount = null"
+        >
+          Publish Scheduled ({{ scheduledCount }})
+        </v-btn>
+        <v-btn color="primary" prepend-icon="mdi-plus" @click="openCreate">
+          Create Session
+        </v-btn>
+      </div>
     </div>
+
+    <v-alert
+      v-if="publishScheduledCount !== null"
+      type="success"
+      variant="tonal"
+      closable
+      class="mb-4"
+      @click:close="publishScheduledCount = null"
+    >
+      {{ publishScheduledCount }} session{{ publishScheduledCount === 1 ? '' : 's' }} published successfully.
+    </v-alert>
 
     <!-- Status filter chips -->
     <div class="d-flex flex-wrap ga-2 mb-4">
@@ -402,6 +452,25 @@ async function confirmDelete() {
           <v-spacer />
           <v-btn variant="text" :disabled="deleting" @click="deleteDialog = false">Cancel</v-btn>
           <v-btn color="error" :loading="deleting" @click="confirmDelete">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+    <!-- Publish Scheduled Confirmation Dialog -->
+    <v-dialog v-model="publishScheduledDialog" max-width="450">
+      <v-card>
+        <v-card-title>Publish Scheduled Sessions</v-card-title>
+        <v-card-text>
+          <v-alert v-if="publishScheduledError" type="error" variant="tonal" class="mb-3">
+            {{ publishScheduledError }}
+          </v-alert>
+          Are you sure you want to publish all <strong>{{ scheduledCount }}</strong>
+          scheduled session{{ scheduledCount === 1 ? '' : 's' }}? Their status will change
+          from <em>scheduled</em> to <em>published</em>.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="publishingScheduled" @click="publishScheduledDialog = false">Cancel</v-btn>
+          <v-btn color="green" :loading="publishingScheduled" @click="confirmPublishScheduled">Publish</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
