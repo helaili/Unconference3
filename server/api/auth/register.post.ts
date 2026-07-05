@@ -1,7 +1,15 @@
 import { users, userEvents, invitations, invitees } from '~/server/database/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
+import { sendPendingSignupAdminEmail } from '~/server/utils/email'
 
 const logger = useLogger('auth')
+
+function getAdminEmails(): string[] {
+  return (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean)
+}
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
@@ -66,6 +74,7 @@ export default defineEventHandler(async (event) => {
       lastName: body.lastName.trim(),
       email: inviteeRecord.email.toLowerCase(),
       passwordHash,
+      approvedAt: null,
     }).returning()
 
     if (!newUser) {
@@ -90,15 +99,22 @@ export default defineEventHandler(async (event) => {
 
   deleteCookie(event, 'invitation-token', { path: '/' })
 
-  await setUserSession(event, {
-    user: {
-      dbId: dbUser.id,
-      firstName: dbUser.firstName,
-      lastName: dbUser.lastName,
-      email: dbUser.email,
-    },
-  })
-
   logger.info(`New user registered: ${dbUser.email}`)
-  return { ok: true }
+
+  const adminEmails = getAdminEmails()
+  const userProfileUrl = `${process.env.APP_URL}/admin/users/${dbUser.id}`
+
+  await Promise.allSettled(
+    adminEmails.map(adminEmail =>
+      sendPendingSignupAdminEmail({
+        to: adminEmail,
+        applicantFirstName: dbUser.firstName ?? '',
+        applicantLastName: dbUser.lastName ?? '',
+        applicantEmail: dbUser.email ?? '',
+        userProfileUrl,
+      }),
+    ),
+  )
+
+  return { ok: true, pending: true }
 })

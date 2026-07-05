@@ -1,7 +1,15 @@
 import { users, userEvents, invitations, invitees } from '~/server/database/schema'
 import { eq, and, isNull, gt } from 'drizzle-orm'
+import { sendPendingSignupAdminEmail } from '~/server/utils/email'
 
 const logger = useLogger('auth')
+
+function getAdminEmails(): string[] {
+  return (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean)
+}
 
 export default defineOAuthGitHubEventHandler({
   config: {
@@ -38,6 +46,7 @@ export default defineOAuthGitHubEventHandler({
         lastName: inviteeRecord.lastName,
         email: user.email,
         avatarUrl: user.avatar_url,
+        approvedAt: null,
       }).onConflictDoUpdate({
         target: users.githubId,
         set: {
@@ -61,6 +70,25 @@ export default defineOAuthGitHubEventHandler({
 
       // Clear the invitation cookie
       deleteCookie(event, 'invitation-token', { path: '/' })
+
+      if (!dbUser.approvedAt) {
+        const userProfileUrl = `${process.env.APP_URL}/admin/users/${dbUser.id}`
+
+        await Promise.allSettled(
+          getAdminEmails().map(adminEmail =>
+            sendPendingSignupAdminEmail({
+              to: adminEmail,
+              applicantFirstName: dbUser.firstName ?? inviteeRecord.firstName,
+              applicantLastName: dbUser.lastName ?? inviteeRecord.lastName,
+              applicantEmail: dbUser.email ?? user.email ?? inviteeRecord.email,
+              userProfileUrl,
+            }),
+          ),
+        )
+
+        logger.info(`GitHub OAuth: user ${user.login} registered and is pending approval`)
+        return sendRedirect(event, '/pending-approval')
+      }
 
       await setUserSession(event, {
         user: {
@@ -92,6 +120,11 @@ export default defineOAuthGitHubEventHandler({
     if (!existingUser) {
       logger.warn(`GitHub OAuth: no invitation found for user ${user.login}`)
       return sendRedirect(event, '/?error=no-invitation')
+    }
+
+    if (!existingUser.approvedAt) {
+      logger.info(`GitHub OAuth: blocked sign-in for pending user ${existingUser.login}`)
+      return sendRedirect(event, '/pending-approval')
     }
 
     const hasEvents = existingUser.userEvents.length > 0

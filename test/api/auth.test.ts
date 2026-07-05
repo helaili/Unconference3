@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { migrateAndSeed, ADMIN_EMAIL, TEST_PASSWORD } from './helpers'
 
 const UNUSED_INVITATION_TOKEN_REGISTER = 'd0000000-0000-0000-0000-000000000002'
+const VALID_INVITATION_TOKEN_REGISTER = 'd0000000-0000-0000-0000-000000000003'
 
 describe('Auth Endpoints', async () => {
   await setup({
@@ -115,6 +116,33 @@ describe('Auth Endpoints', async () => {
         }),
       })
       expect(res.status).toBe(400)
+    })
+
+    it('creates the user in pending state when the invitation is valid', async () => {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': `invitation-token=${VALID_INVITATION_TOKEN_REGISTER}`,
+        },
+        body: JSON.stringify({
+          firstName: 'Carol',
+          lastName: 'Lee',
+          email: 'carol@example.com',
+          password: 'validpassword123',
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({ ok: true, pending: true })
+
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'carol@example.com', password: 'validpassword123' }),
+      })
+      expect(loginRes.status).toBe(403)
     })
   })
 })

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New account pending approval</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background:#18181b;padding:24px 32px;">
+              <h1 style="margin:0;color:#ffffff;font-size:20px;">New account pending approval</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 16px;font-size:16px;color:#27272a;">Hi {{admin_first_name}},</p>
+              <p style="margin:0 0 24px;font-size:16px;color:#27272a;line-height:1.5;">
+                <strong>{{applicant_first_name}} {{applicant_last_name}}</strong> just created an account with
+                <strong>{{applicant_email}}</strong> and is waiting for approval.
+              </p>
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="background:#2563eb;border-radius:6px;">
+                    <a href="{{user_profile_url}}" style="display:inline-block;padding:12px 32px;color:#ffffff;font-size:16px;font-weight:600;text-decoration:none;">
+                      Review Applicant
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0;font-size:12px;color:#a1a1aa;line-height:1.5;word-break:break-all;">
+                If the button doesn't work, copy this URL into your browser:<br>{{user_profile_url}}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

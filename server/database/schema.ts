@@ -110,6 +110,7 @@ export const users = pgTable('users', {
   email: varchar('email', { length: 255 }).unique(),
   passwordHash: text('password_hash'),
   avatarUrl: text('avatar_url'),
+  approvedAt: timestamp('approved_at', { mode: 'date' }).defaultNow(),
   createdAt: timestamp('created_at', { mode: 'date' }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { mode: 'date' }).defaultNow().notNull(),
 })

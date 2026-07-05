@@ -37,6 +37,7 @@ export default defineEventHandler(async (event) => {
       email: users.email,
       login: users.login,
       avatarUrl: users.avatarUrl,
+      approvedAt: users.approvedAt,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })

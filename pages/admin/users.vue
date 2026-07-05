@@ -9,6 +9,7 @@ interface UserItem {
   email: string | null
   login: string | null
   avatarUrl: string | null
+  approvedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -18,6 +19,7 @@ const headers = [
   { title: 'Last Name', key: 'lastName' },
   { title: 'Email', key: 'email' },
   { title: 'Login', key: 'login' },
+  { title: 'Status', key: 'status' },
   { title: 'Created At', key: 'createdAt' },
   { title: 'Actions', key: 'actions', sortable: false },
 ]
@@ -66,6 +68,14 @@ function formatDate(date: string): string {
 
 function displayValue(value: string | null): string {
   return value ?? '—'
+}
+
+function isPending(user: UserItem): boolean {
+  return !user.approvedAt
+}
+
+function openProfile(user: UserItem) {
+  navigateTo(`/admin/users/${user.id}`)
 }
 
 function openCreate() {
@@ -194,11 +204,21 @@ async function confirmDelete() {
         {{ displayValue(item.login) }}
       </template>
 
+      <template #[`item.status`]="{ item }">
+        <v-chip :color="isPending(item) ? 'warning' : 'success'" size="small" variant="tonal">
+          {{ isPending(item) ? 'Pending' : 'Approved' }}
+        </v-chip>
+      </template>
+
       <template #[`item.createdAt`]="{ item }">
         {{ formatDate(item.createdAt) }}
       </template>
 
       <template #[`item.actions`]="{ item }">
+        <v-btn icon size="small" variant="text" color="secondary" @click="openProfile(item)">
+          <v-icon>mdi-open-in-new</v-icon>
+          <v-tooltip activator="parent" location="top">View Profile</v-tooltip>
+        </v-btn>
         <v-btn icon size="small" variant="text" color="primary" @click="openEdit(item)">
           <v-icon>mdi-pencil</v-icon>
           <v-tooltip activator="parent" location="top">Edit</v-tooltip>

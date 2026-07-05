@@ -28,6 +28,11 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid email or password' })
   }
 
+  if (!dbUser.approvedAt) {
+    logger.info(`Blocked login for pending account: ${dbUser.email}`)
+    throw createError({ statusCode: 403, statusMessage: 'Your account is pending admin approval' })
+  }
+
   const valid = await verifyPassword(dbUser.passwordHash, body.password)
   if (!valid) {
     logger.warn(`Failed login attempt for: ${body.email}`)

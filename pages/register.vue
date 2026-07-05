@@ -67,8 +67,7 @@ const register = async () => {
         password: password.value,
       },
     })
-    await useUserSession().fetch()
-    navigateTo('/dashboard')
+    navigateTo('/pending-approval')
   } catch (e: unknown) {
     const message = e && typeof e === 'object' && 'data' in e
       ? (e as { data?: { message?: string } }).data?.message

@@ -22,13 +22,33 @@ vi.mock('@sendgrid/mail', () => ({
 }))
 
 // Import after mocks are registered
-const { getEmailProvider, sendInvitationEmail } = await import('../../server/utils/email')
+const {
+  getEmailProvider,
+  sendInvitationEmail,
+  sendPendingSignupAdminEmail,
+  sendAccountApprovedEmail,
+} = await import('../../server/utils/email')
 
 const BASE_PARAMS = {
   to: 'alice@example.com',
   firstName: 'Alice',
   eventName: 'Test Conference',
   inviteToken: 'tok-abc',
+}
+
+const ADMIN_PENDING_PARAMS = {
+  to: 'admin@example.com',
+  adminFirstName: 'Admin',
+  applicantFirstName: 'Alice',
+  applicantLastName: 'Smith',
+  applicantEmail: 'alice@example.com',
+  userProfileUrl: 'https://example.com/admin/users/user-123',
+}
+
+const APPROVED_PARAMS = {
+  to: 'alice@example.com',
+  firstName: 'Alice',
+  loginUrl: 'https://example.com/login',
 }
 
 describe('getEmailProvider', () => {
@@ -108,6 +128,39 @@ describe('sendInvitationEmail — SMTP', () => {
   it('rethrows errors from the transporter', async () => {
     sendMailMock.mockRejectedValueOnce(new Error('SMTP connection refused'))
     await expect(sendInvitationEmail(BASE_PARAMS)).rejects.toThrow('SMTP connection refused')
+  })
+})
+
+describe('approval workflow emails — SMTP', () => {
+  beforeEach(() => {
+    process.env.EMAIL_PROVIDER = 'smtp'
+    process.env.SMTP_FROM = 'no-reply@example.com'
+    process.env.APP_URL = 'https://example.com'
+    sendMailMock.mockClear()
+  })
+
+  afterEach(() => {
+    delete process.env.EMAIL_PROVIDER
+    delete process.env.SMTP_FROM
+    delete process.env.APP_URL
+    delete process.env.EMAIL_FROM
+  })
+
+  it('sends the admin review email with the profile URL', async () => {
+    await sendPendingSignupAdminEmail(ADMIN_PENDING_PARAMS)
+    const call = sendMailMock.mock.calls[0][0]
+    expect(call.to).toBe('admin@example.com')
+    expect(call.subject).toContain('New account pending approval')
+    expect(call.html).toContain('https://example.com/admin/users/user-123')
+    expect(call.html).toContain('Alice Smith')
+  })
+
+  it('sends the applicant approval email with the login URL', async () => {
+    await sendAccountApprovedEmail(APPROVED_PARAMS)
+    const call = sendMailMock.mock.calls[0][0]
+    expect(call.to).toBe('alice@example.com')
+    expect(call.subject).toBe('Your account has been approved')
+    expect(call.html).toContain('https://example.com/login')
   })
 })
 

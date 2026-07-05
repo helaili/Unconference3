@@ -78,6 +78,13 @@
       "when": 1778670679783,
       "tag": "0010_intro_round_room_ids",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783285542092,
+      "tag": "0011_user_approval",
+      "breakpoints": true
     }
   ]
 }
